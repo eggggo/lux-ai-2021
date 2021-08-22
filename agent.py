@@ -7,7 +7,7 @@ from lux import annotate
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
-
+num_cityTiles = 1;
 
 def agent(observation, configuration):
     global game_state
@@ -34,6 +34,8 @@ def agent(observation, configuration):
             cell = game_state.map.get_cell(x, y)
             if cell.has_resource():
                 resource_tiles.append(cell)
+
+
 
     # we iterate over all our units and do something with them
     for unit in player.units:
@@ -65,6 +67,16 @@ def agent(observation, configuration):
                     if closest_city_tile is not None:
                         move_dir = unit.pos.direction_to(closest_city_tile.pos)
                         actions.append(unit.move(move_dir))
+
+    for name, city in player.cities.items():
+        for cityTile in city.citytiles:
+            if cityTile.can_act():
+                if len(player.units) < num_cityTiles:
+                   actions.append(cityTile.build_worker());
+                else:
+                    actions.append(cityTile.research());
+
+    # add in preferences for which city builds the worker depending on distance from resource
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
