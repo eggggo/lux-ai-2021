@@ -57,6 +57,11 @@ def agent(observation, configuration):
         else:
             return False
 
+    #list of all the positions of units to help prevent collisions
+    unit_locations: list[Position] = []
+    for unit in player.units:
+        unit_locations.append(unit.pos)
+
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
@@ -75,8 +80,12 @@ def agent(observation, configuration):
             turns_until_night = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length) - night_length
             if turns_until_night < 0:
                 turns_until_night = 0
-            if turns_from_home > turns_until_night: #if the turns itll take for you to get home is greater than the turns till night, head home
-                actions.append(unit.move(unit.pos.direction_to(closest_city_tile.pos)))
+            if turns_from_home > turns_until_night and closest_city_tile.pos is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
+                if unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1) not in unit_locations:
+                    unit_locations.remove(unit.pos)
+                    actions.append(unit.move(unit.pos.direction_to(closest_city_tile.pos)))
+                    unit_locations.append(unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1))
+
             elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
@@ -135,6 +144,10 @@ def agent(observation, configuration):
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
                     if closest_city_tile is not None:
                         move_dir = unit.pos.direction_to(closest_city_tile.pos)
+                        if unit.pos.translate(move_dir, 1) not in unit_locations:
+                            unit_locations.remove(unit.pos)
+                            actions.append(unit.move(move_dir))
+                            unit_locations.append(unit.pos.translate(move_dir, 1))
                         actions.append(unit.move(move_dir))
 
             elif unit.get_cargo_space_left() > 0:
@@ -147,14 +160,17 @@ def agent(observation, configuration):
                         closest_dist_resource = dist
                         closest_resource_tile = resource_tile
                 if closest_resource_tile is not None:
-                    actions.append(unit.move(unit.pos.direction_to(closest_resource_tile.pos)))
+                    if unit.pos.translate(unit.pos.direction_to(closest_resource_tile.pos), 1) not in unit_locations:
+                        unit_locations.remove(unit.pos)
+                        actions.append(unit.move(unit.pos.direction_to(closest_resource_tile.pos)))
+                        unit_locations.append(unit.pos.translate(unit.pos.direction_to(closest_resource_tile.pos), 1))
 
     for name, city in player.cities.items():
         for cityTile in city.citytiles:
             if cityTile.can_act():
-                 if len(player.units) < num_cityTiles:
-                       actions.append(cityTile.build_worker())
-                 elif player.research_points < cost_uranium:
+                if (len(player.units) < num_cityTiles) and (cityTile.pos not in unit_locations):
+                    actions.append(cityTile.build_worker())
+                elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
 
     # add in preferences for which city builds the worker depending on distance from resource
