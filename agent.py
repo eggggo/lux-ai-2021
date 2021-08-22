@@ -35,7 +35,7 @@ def agent(observation, configuration):
     
     actions = []
 
-    ### AI Code goes down here! ### 
+    ### AI Code goes down here! ### s
     player = game_state.players[observation.player]
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
@@ -70,6 +70,9 @@ def agent(observation, configuration):
         for cityTiles in city.citytiles:
             num_cityTiles += 1
 
+    # current city action flow:
+    #   1. build workers if have space
+    #   2. research otherwise
     for name, city in player.cities.items():
         for cityTile in city.citytiles:
             if cityTile.can_act():
@@ -93,7 +96,12 @@ def agent(observation, configuration):
                             closest_dist_city = dist
                             closest_city_tile = city_tile
             turns_from_home = closest_dist_city * worker_cooldown
-            if turns_from_home > turns_until_night and closest_city_tile is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
+            # current action flow listed off priority: 
+            #   1. go home if close to night
+            #   2. build city if sustainable and have 100 resource
+            #   3. if didn't build city go to nearest city to depo
+            #   4. collect resources if >90 cargo space
+            if turns_from_home >= turns_until_night and closest_city_tile is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
                 if unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1) not in unit_locations:
                     unit_locations.remove(unit.pos)
                     actions.append(unit.move(unit.pos.direction_to(closest_city_tile.pos)))
@@ -153,24 +161,11 @@ def agent(observation, configuration):
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
                     if closest_city_tile is not None:
-                        if unit.pos.distance_to(closest_city_tile.pos) <= 1:
-                            optimalFuel = max(unit.cargo.wood, unit.cargo.coal*fuel_per_unit_coal, unit.cargo.uranium*fuel_per_unit_uranium)
-                            if (optimalFuel == unit.cargo.uranium*fuel_per_unit_uranium):
-                                optimalResource = Constants.RESOURCE_TYPES.URANIUM
-                                resourceAmount = unit.cargo.uranium
-                            elif (optimalFuel == unit.cargo.coal*fuel_per_unit_coal):
-                                optimalResource = Constants.RESOURCE_TYPES.COAL
-                                resourceAmount = unit.cargo.coal
-                            else:
-                                optimalResource = Constants.RESOURCE_TYPES.WOOD
-                                resourceAmount = unit.cargo.wood
-                            actions.append(unit.transfer(closest_city_tile.cityid, optimalResource, resourceAmount))
-                        else:
-                            move_dir = unit.pos.direction_to(closest_city_tile.pos)
-                            if unit.pos.translate(move_dir, 1) not in unit_locations:
-                                unit_locations.remove(unit.pos)
-                                actions.append(unit.move(move_dir))
-                                unit_locations.append(unit.pos.translate(move_dir, 1))
+                        move_dir = unit.pos.direction_to(closest_city_tile.pos)
+                        if unit.pos.translate(move_dir, 1) not in unit_locations:
+                            unit_locations.remove(unit.pos)
+                            actions.append(unit.move(move_dir))
+                            unit_locations.append(unit.pos.translate(move_dir, 1))
 
             elif unit.get_cargo_space_left() > 90:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
