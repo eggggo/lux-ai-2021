@@ -7,7 +7,6 @@ from lux import annotate
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
-num_cityTiles = 1 #number of cityTiles our player has
 cost_uranium = 200 #research points needed for uranium
 cost_coal = 50 #research points needed for coal
 fuel_per_unit_wood = 1
@@ -62,6 +61,20 @@ def agent(observation, configuration):
     for unit in player.units:
         unit_locations.append(unit.pos)
 
+    num_cityTiles = 0
+    #count number of city tiles owned per turn.
+    for name, city in player.cities.items():
+        for cityTiles in city.citytiles:
+            num_cityTiles += 1
+
+    for name, city in player.cities.items():
+        for cityTile in city.citytiles:
+            if cityTile.can_act():
+                if (len(player.units) < num_cityTiles) and (cityTile.pos not in unit_locations):
+                    actions.append(cityTile.build_worker())
+                elif player.research_points < cost_uranium:
+                    actions.append(cityTile.research())
+
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
@@ -80,22 +93,21 @@ def agent(observation, configuration):
             turns_until_night = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length) - night_length
             if turns_until_night < 0:
                 turns_until_night = 0
-            if turns_from_home > turns_until_night and closest_city_tile.pos is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
+            if turns_from_home > turns_until_night and closest_city_tile is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
                 if unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1) not in unit_locations:
                     unit_locations.remove(unit.pos)
                     actions.append(unit.move(unit.pos.direction_to(closest_city_tile.pos)))
                     unit_locations.append(unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1))
-
             elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
                 adjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)]; #create list of adjacent tiles
+                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
                 mineableAdjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)]; #create list of adjacent tiles
-                collection_per_night = 0;
-                accessible_fuel = 0;
+                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
+                collection_per_night = 0
+                accessible_fuel = 0
 
                 for posn in adjacentTiles: #filtering to tiles that are both adjacent and mineable
                     if not in_bounds(posn): #filter adjacent tiles to the in bounds tiles
@@ -138,8 +150,7 @@ def agent(observation, configuration):
                 if (full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)) * collection_per_night > necessary_fuel_to_keep_city_alive and \
                         accessible_fuel > necessary_fuel_to_keep_city_alive and unit.can_build(game_state.map):
                     actions.append(unit.build_city())
-                    global num_cityTiles
-                    num_cityTiles = num_cityTiles + 1
+                    num_cityTiles += 1
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
                     if closest_city_tile is not None:
@@ -148,7 +159,6 @@ def agent(observation, configuration):
                             unit_locations.remove(unit.pos)
                             actions.append(unit.move(move_dir))
                             unit_locations.append(unit.pos.translate(move_dir, 1))
-                        actions.append(unit.move(move_dir))
 
             elif unit.get_cargo_space_left() > 0:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
@@ -165,13 +175,6 @@ def agent(observation, configuration):
                         actions.append(unit.move(unit.pos.direction_to(closest_resource_tile.pos)))
                         unit_locations.append(unit.pos.translate(unit.pos.direction_to(closest_resource_tile.pos), 1))
 
-    for name, city in player.cities.items():
-        for cityTile in city.citytiles:
-            if cityTile.can_act():
-                if (len(player.units) < num_cityTiles) and (cityTile.pos not in unit_locations):
-                    actions.append(cityTile.build_worker())
-                elif player.research_points < cost_uranium:
-                    actions.append(cityTile.research())
 
     # add in preferences for which city builds the worker depending on distance from resource
 
