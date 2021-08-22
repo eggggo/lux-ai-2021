@@ -8,6 +8,7 @@ from lux import annotate
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 num_cityTiles = 1;
+cost_uranium = 200;
 
 def agent(observation, configuration):
     global game_state
@@ -73,7 +74,7 @@ def agent(observation, configuration):
             if cityTile.can_act():
                 if len(player.units) < num_cityTiles:
                    actions.append(cityTile.build_worker());
-                else:
+                elif player.research_points >= cost_uranium:
                     actions.append(cityTile.research());
 
     # add in preferences for which city builds the worker depending on distance from resource
