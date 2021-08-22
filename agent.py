@@ -74,7 +74,7 @@ def agent(observation, configuration):
             if cityTile.can_act():
                 if len(player.units) < num_cityTiles:
                    actions.append(cityTile.build_worker());
-                elif player.research_points >= cost_uranium:
+                elif player.research_points <= cost_uranium:
                     actions.append(cityTile.research());
 
     # add in preferences for which city builds the worker depending on distance from resource
