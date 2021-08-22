@@ -19,6 +19,8 @@ units_collected_per_turn_uranium = 4
 full_day_night_cycle_length = 40
 less_fuel_needed_per_night_constant = 5
 current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
+worker_cooldown = 2
+night_length = 10
 
 def agent(observation, configuration):
     global game_state
@@ -43,6 +45,9 @@ def agent(observation, configuration):
     for y in range(height):
         for x in range(width):
             cell = game_state.map.get_cell(x, y)
+            # make sure wood doesn't deplete.  Logic for the number 2 is that by moving adj to the square,
+            # you have a cooldown of two and will passively collect that, depleting the resource if the amount left is less than two times the collection rate
+            # if cell.has_resource() and not (cell.resource.type == Constants.RESOURCE_TYPES.WOOD and cell.resource.amount < 2 * units_collected_per_turn_wood):
             if cell.has_resource():
                 resource_tiles.append(cell)
 
@@ -55,9 +60,24 @@ def agent(observation, configuration):
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
-            closest_dist = math.inf
+            closest_dist_city = math.inf
+            closest_city_tile = None
+            closest_dist_resource = math.inf
             closest_resource_tile = None
-            if unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
+            if len(player.cities) > 0:
+                for k, city in player.cities.items():
+                    for city_tile in city.citytiles:
+                        dist = city_tile.pos.distance_to(unit.pos)
+                        if dist < closest_dist_city:
+                            closest_dist_city = dist
+                            closest_city_tile = city_tile
+            turns_from_home = closest_dist_city * worker_cooldown
+            turns_until_night = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length) - night_length
+            if turns_until_night < 0:
+                turns_until_night = 0
+            if turns_from_home > turns_until_night: #if the turns itll take for you to get home is greater than the turns till night, head home
+                actions.append(unit.move(unit.pos.direction_to(closest_city_tile.pos)))
+            elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
@@ -66,6 +86,7 @@ def agent(observation, configuration):
                 mineableAdjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
                                                      Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)]; #create list of adjacent tiles
                 collection_per_night = 0;
+                accessible_fuel = 0;
 
                 for posn in adjacentTiles: #filtering to tiles that are both adjacent and mineable
                     if not in_bounds(posn): #filter adjacent tiles to the in bounds tiles
@@ -78,20 +99,26 @@ def agent(observation, configuration):
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
                                 if cell.resource.amount < units_collected_per_turn_uranium:
                                     collection_per_night += cell.resource.amount * fuel_per_unit_uranium
+                                    accessible_fuel += cell.resource.amount * fuel_per_unit_uranium
                                 else:
                                     collection_per_night += units_collected_per_turn_uranium * fuel_per_unit_uranium
+                                    accessible_fuel += cell.resource.amount * fuel_per_unit_uranium
                             elif player.researched_coal() and cell.resource.type == Constants.RESOURCE_TYPES.COAL:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
                                 if cell.resource.amount < units_collected_per_turn_coal:
                                     collection_per_night += cell.resource.amount * fuel_per_unit_coal
+                                    accessible_fuel += cell.resource.amount * fuel_per_unit_coal
                                 else:
                                     collection_per_night += units_collected_per_turn_coal * fuel_per_unit_coal
+                                    accessible_fuel += cell.resource.amount * fuel_per_unit_coal
                             elif cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
                                 if cell.resource.amount < units_collected_per_turn_wood:
                                     collection_per_night += cell.resource.amount * fuel_per_unit_wood
+                                    accessible_fuel += cell.resource.amount * fuel_per_unit_wood
                                 else:
                                     collection_per_night += units_collected_per_turn_wood * fuel_per_unit_wood
+                                    accessible_fuel += cell.resource.amount * fuel_per_unit_wood
                         else:
                             mineableAdjacentTiles.remove(posn)
                 necessary_fuel_to_keep_city_alive = current_default_fuel_needed_to_survive_a_full_night
@@ -100,24 +127,15 @@ def agent(observation, configuration):
                     if (cell.citytile is not None) and cell.citytile.cityid == game_state.id:
                         necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
                 if (full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)) * collection_per_night > necessary_fuel_to_keep_city_alive and \
-                        unit.can_build(game_state.map):
+                        accessible_fuel > necessary_fuel_to_keep_city_alive and unit.can_build(game_state.map):
                     actions.append(unit.build_city())
                     global num_cityTiles
                     num_cityTiles = num_cityTiles + 1
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
-                    if len(player.cities) > 0:
-                        closest_dist = math.inf
-                        closest_city_tile = None
-                        for k, city in player.cities.items():
-                            for city_tile in city.citytiles:
-                                dist = city_tile.pos.distance_to(unit.pos)
-                                if dist < closest_dist:
-                                    closest_dist = dist
-                                    closest_city_tile = city_tile
-                        if closest_city_tile is not None:
-                            move_dir = unit.pos.direction_to(closest_city_tile.pos)
-                            actions.append(unit.move(move_dir))
+                    if closest_city_tile is not None:
+                        move_dir = unit.pos.direction_to(closest_city_tile.pos)
+                        actions.append(unit.move(move_dir))
 
             elif unit.get_cargo_space_left() > 0:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
@@ -125,8 +143,8 @@ def agent(observation, configuration):
                     if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
                     if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uranium(): continue
                     dist = resource_tile.pos.distance_to(unit.pos)
-                    if dist < closest_dist:
-                        closest_dist = dist
+                    if dist < closest_dist_resource:
+                        closest_dist_resource = dist
                         closest_resource_tile = resource_tile
                 if closest_resource_tile is not None:
                     actions.append(unit.move(unit.pos.direction_to(closest_resource_tile.pos)))
