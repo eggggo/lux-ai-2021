@@ -40,6 +40,9 @@ def agent(observation, configuration):
     player = game_state.players[observation.player]
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
+    turns_until_night = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length) - night_length
+    if turns_until_night < 0:
+        turns_until_night = 0
 
     resource_tiles: list[Cell] = []
     for y in range(height):
@@ -77,9 +80,6 @@ def agent(observation, configuration):
                             closest_dist_city = dist
                             closest_city_tile = city_tile
             turns_from_home = closest_dist_city * worker_cooldown
-            turns_until_night = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length) - night_length
-            if turns_until_night < 0:
-                turns_until_night = 0
             if turns_from_home > turns_until_night and closest_city_tile.pos is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
                 if unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1) not in unit_locations:
                     unit_locations.remove(unit.pos)
@@ -135,22 +135,33 @@ def agent(observation, configuration):
                     cell = game_state.map.get_cell_by_pos(tile)
                     if (cell.citytile is not None) and cell.citytile.cityid == game_state.id:
                         necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
-                if (full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)) * collection_per_night > necessary_fuel_to_keep_city_alive and \
-                        accessible_fuel > necessary_fuel_to_keep_city_alive and unit.can_build(game_state.map):
+                if (turns_until_night * collection_per_night > necessary_fuel_to_keep_city_alive/10 and \
+                        accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.can_build(game_state.map):
                     actions.append(unit.build_city())
-                    global num_cityTiles
                     num_cityTiles = num_cityTiles + 1
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
                     if closest_city_tile is not None:
-                        move_dir = unit.pos.direction_to(closest_city_tile.pos)
-                        if unit.pos.translate(move_dir, 1) not in unit_locations:
-                            unit_locations.remove(unit.pos)
-                            actions.append(unit.move(move_dir))
-                            unit_locations.append(unit.pos.translate(move_dir, 1))
-                        actions.append(unit.move(move_dir))
+                        if unit.pos.distance_to(closest_city_tile.pos) <= 1:
+                            optimalFuel = max(unit.cargo.wood, unit.cargo.coal*fuel_per_unit_coal, unit.cargo.uranium*fuel_per_unit_uranium)
+                            if (optimalFuel == unit.cargo.uranium*fuel_per_unit_uranium):
+                                optimalResource = Constants.RESOURCE_TYPES.URANIUM
+                                resourceAmount = unit.cargo.uranium
+                            elif (optimalFuel == unit.cargo.coal*fuel_per_unit_coal):
+                                optimalResource = Constants.RESOURCE_TYPES.COAL
+                                resourceAmount = unit.cargo.coal
+                            else:
+                                optimalResource = Constants.RESOURCE_TYPES.WOOD
+                                resourceAmount = unit.cargo.wood
+                            actions.append(unit.transfer(closest_city_tile.cityid, optimalResource, resourceAmount))
+                        else:
+                            move_dir = unit.pos.direction_to(closest_city_tile.pos)
+                            if unit.pos.translate(move_dir, 1) not in unit_locations:
+                                unit_locations.remove(unit.pos)
+                                actions.append(unit.move(move_dir))
+                                unit_locations.append(unit.pos.translate(move_dir, 1))
 
-            elif unit.get_cargo_space_left() > 0:
+            elif unit.get_cargo_space_left() > 90:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
                 for resource_tile in resource_tiles:
                     if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
