@@ -130,6 +130,21 @@ def agent(observation, configuration):
             unit_destinations.append(unit.pos)
             return None
 
+    #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
+    def estimated_value_of_worker(prospective_worker):
+        t = turns_until_new_cycle
+        # while t > 0:
+        list_of_resources = findOptimalResource(game_state.map, player.research_points, prospective_worker, turns_until_night)
+        value = 0
+        if len(list_of_resources) != 0:
+            pos = list_of_resources[0][0]
+            dist_turns = 2 * (abs(prospective_worker.pos.x - pos.x) + abs(prospective_worker.pos.y - pos.y))
+            t -= dist_turns
+            value = t * list_of_resources[0][1]
+        return value
+
+    estimated_total_value_of_workers = 0
+
     def closest_worker(pos):
         dictionary_workers = {}
         for worker in player.units:
@@ -153,6 +168,9 @@ def agent(observation, configuration):
     id_book = {}
     for unit in player.units:
         id_book[unit.id] = unit
+        estimated_total_value_of_workers += estimated_value_of_worker(unit)
+    units_built = 0
+    cities_built = 1
 
     #list of available building tiles on the map
     available: list[Position] = []
@@ -194,7 +212,9 @@ def agent(observation, configuration):
     #   2. research otherwise
     #could potentially optimize spawn location of workers
     workers_to_build = num_cityTiles - len(player.units)
+    power_needed = 0
     for name, city in player.cities.items():
+        power_needed += city.get_light_upkeep()
         for cityTile in city.citytiles:
             if cityTile.can_act():
                 if workers_to_build > 0:
@@ -233,7 +253,7 @@ def agent(observation, configuration):
             #   2. build city if sustainable and have 100 resource
             #   3. if didn't build city go to nearest city to depo
             #   4. collect resources if >90 cargo space
-            if turns_from_home >= turns_until_night and closest_city_tile is not None and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
+            if turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
                 action = move(unit, closest_city_tile.pos)
                 if (action != None):
                     actions.append(action)
@@ -293,13 +313,19 @@ def agent(observation, configuration):
                 building_constant_a = 11
                 building_constant_b = 10
                 building_constant_c = 10
+                building_constant_d = 1.2 #added to account for the extra city built, as it isnt accounted for inherintly in power_needed
                 if (not workerActioned):
                     #if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
                         #actions.append(unit.build_city())
                         #workerActioned = True
-                    if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
-                        accessible_fuel > necessary_fuel_to_keep_city_alive/building_constant_c) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
+                    # if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
+                    #     accessible_fuel > necessary_fuel_to_keep_city_alive/building_constant_c) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
+                    #     actions.append(unit.build_city())
+                    #     workerActioned = True
+                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 20*cities_built) and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
                         actions.append(unit.build_city())
+                        units_built += 1
+                        cities_built += 1
                         workerActioned = True
                     else:
                         # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
