@@ -15,11 +15,11 @@ game_state = None
 cost_uranium = 200 #research points needed for uranium
 cost_coal = 50 #research points needed for coal
 fuel_per_unit_wood = 1
-fuel_per_unit_coal = 5
-fuel_per_unit_uranium = 20
+fuel_per_unit_coal = 10
+fuel_per_unit_uranium = 40
 units_collected_per_turn_wood = 20
-units_collected_per_turn_coal = 10
-units_collected_per_turn_uranium = 4
+units_collected_per_turn_coal = 5
+units_collected_per_turn_uranium = 2
 full_day_night_cycle_length = 40
 less_fuel_needed_per_night_constant = 5
 current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
