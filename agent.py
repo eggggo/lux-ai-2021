@@ -40,7 +40,9 @@ def agent(observation, configuration):
     player = game_state.players[observation.player]
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
-    turns_until_night = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length) - night_length
+
+    turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
+    turns_until_night = turns_until_new_cycle - night_length
     if turns_until_night < 0:
         turns_until_night = 0
 
@@ -128,11 +130,13 @@ def agent(observation, configuration):
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
+    workers_to_build = num_cityTiles - len(player.units)
     for name, city in player.cities.items():
         for cityTile in city.citytiles:
             if cityTile.can_act():
-                if (len(player.units) < num_cityTiles):
+                if workers_to_build > 0:
                     actions.append(cityTile.build_worker())
+                    workers_to_build -= 1
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
 
@@ -211,8 +215,12 @@ def agent(observation, configuration):
                     cell = game_state.map.get_cell_by_pos(tile)
                     if (cell.citytile is not None) and cell.citytile.cityid == game_state.id:
                         necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
-                if (turns_until_night * collection_per_night > necessary_fuel_to_keep_city_alive/10 and \
-                        accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.can_build(game_state.map):
+
+                #if turns_until_night > 6 and unit.can_build(game_state.map):
+                #   actions.append(unit.build_city())
+
+                if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/10 and \
+                    accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
                     actions.append(unit.build_city())
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
