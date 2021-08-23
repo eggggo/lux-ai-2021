@@ -292,15 +292,18 @@ def agent(observation, configuration):
                 if (not workerActioned):
                     if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
                         actions.append(unit.build_city())
+                        workerActioned = True
                     elif (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
                         accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
                         actions.append(unit.build_city())
+                        workerActioned = True
                     else:
                         # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
                         if closest_city_tile is not None:
                             action = move(unit, closest_city_tile.pos)
                             if (action != None):
                                 actions.append(action)
+                                workerActioned = True
 
             elif unit.get_cargo_space_left() > 0 and not workerActioned:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
@@ -309,6 +312,7 @@ def agent(observation, configuration):
                     action = move(unit, possibleGatheringPositions[0][0])
                     if (action != None):
                             actions.append(action)
+                            workerActioned = True
 
     # add in preferences for which city builds the worker depending on distance from resource
 
