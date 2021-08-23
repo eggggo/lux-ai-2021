@@ -116,10 +116,12 @@ def agent(observation, configuration):
 
     def move(unit, tgt):
         if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
+            unit_destinations.remove(unit.pos)
             action = unit.move(unit.pos.direction_to(tgt))
             unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
             return action
         elif (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
+            unit_destinations.remove(unit.pos)
             action = unit.move(closestFreeDirection(unit, tgt))
             unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
             return action
