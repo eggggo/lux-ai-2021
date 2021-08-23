@@ -205,13 +205,14 @@ def agent(observation, configuration):
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
-            if unit.id in work_list_dictionary:
+            workerActioned = False
+            if unit.id in work_list_dictionary and not workerActioned:
                 if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build():
-                    print('success')
                     actions.append(unit.build_city())
+                    workerActioned = True
                 else:
-                    print('road to success')
                     actions.append(move(unit, work_list_dictionary[unit.id]))
+                    workerActioned = True
             closest_dist_city = math.inf
             closest_city_tile = None
             closest_dist_resource = math.inf
@@ -229,10 +230,11 @@ def agent(observation, configuration):
             #   2. build city if sustainable and have 100 resource
             #   3. if didn't build city go to nearest city to depo
             #   4. collect resources if >90 cargo space
-            if turns_from_home >= turns_until_night and closest_city_tile is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
+            if turns_from_home >= turns_until_night and closest_city_tile is not None and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
                 action = move(unit, closest_city_tile.pos)
                 if (action != None):
                     actions.append(action)
+                    workerActioned = True
             elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
@@ -287,31 +289,21 @@ def agent(observation, configuration):
 
                 building_constant_a = 11
                 building_constant_b = 5
-                if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
-                    actions.append(unit.build_city())
-                elif (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
-                    accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
-                    actions.append(unit.build_city())
-                else:
-                    # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
-                    if closest_city_tile is not None:
-                        action = move(unit, closest_city_tile.pos)
-                        if (action != None):
-                            actions.append(action)
+                if (not workerActioned):
+                    if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
+                        actions.append(unit.build_city())
+                    elif (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
+                        accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
+                        actions.append(unit.build_city())
+                    else:
+                        # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
+                        if closest_city_tile is not None:
+                            action = move(unit, closest_city_tile.pos)
+                            if (action != None):
+                                actions.append(action)
 
-            elif unit.get_cargo_space_left() > 0:
-                # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
-                # for resource_tile in resource_tiles:
-                #     if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
-                #     if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uranium(): continue
-                #     dist = resource_tile.pos.distance_to(unit.pos)
-                #     if dist < closest_dist_resource:
-                #         closest_dist_resource = dist
-                #         closest_resource_tile = resource_tile
-                # if closest_resource_tile is not None:
-                #     action = move(unit, closest_resource_tile.pos)
-                #     if (action != None):
-                #         actions.append(action)
+            elif unit.get_cargo_space_left() > 0 and not workerActioned:
+                # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit)
                 if (len(possibleGatheringPositions) > 0):
                     action = move(unit, possibleGatheringPositions[0][0])
