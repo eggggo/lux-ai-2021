@@ -130,6 +130,64 @@ def agent(observation, configuration):
             unit_destinations.append(unit.pos)
             return None
 
+    def closest_worker(pos):
+        dictionary_workers = {}
+        for worker in player.units:
+            dictionary_workers[worker.id] = worker.pos.distance_to(pos)
+        sorted_dictionary_workers = dict(sorted(dictionary_workers.items(), key=lambda kv: kv[1]))
+        list_ids: list[str] = []
+        for iden, distan in sorted_dictionary_workers.items():
+            list_ids.append(iden)
+        return list_ids
+
+    def adjacent_tiles(pos):
+        adjacent_tile_list_clone: list[Position] = [Position(pos.x + 1, pos.y), Position(pos.x - 1, pos.y),
+                                              Position(pos.x, pos.y + 1), Position(pos.x, pos.y - 1)]
+        adjacent_tile_list: list[Position] = [Position(pos.x+1, pos.y), Position(pos.x-1, pos.y),
+                                              Position(pos.x, pos.y+1), Position(pos.x, pos.y-1)]
+        for square in adjacent_tile_list_clone:
+            if not in_bounds(square):
+                adjacent_tile_list.remove(square)
+        return adjacent_tile_list
+
+    id_book = {}
+    for unit in player.units:
+        id_book[unit.id] = unit
+
+    #list of available building tiles on the map
+    available: list[Position] = []
+    for y in range(height):
+        for x in range(width):
+            cell = game_state.map.get_cell_by_pos(Position(x, y))
+            if not cell.has_resource() and cell.citytile is None:
+                available.append(Position(x, y))
+    #list of tiles with adjacent tiles of more than 1 city
+    # maybe could sort this to most efficient work orders to be completed first
+    list_tiles_need_city: list[Position] = []
+    for posn in available:
+        adj_tile: list[Position] = adjacent_tiles(posn)
+        num_adj_cities = 0
+        for tiles in adj_tile:
+            tiles_cell = game_state.map.get_cell_by_pos(tiles)
+            if tiles_cell.citytile is not None and tiles_cell.citytile.team == game_state.id:
+                num_adj_cities += 1
+        if num_adj_cities >= 2:
+            list_tiles_need_city.append(posn)
+
+    #Id of worker and position of building a city
+    # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
+    work_list_dictionary = {}
+    if len(list_tiles_need_city) != 0:
+        worker_list = closest_worker(list_tiles_need_city[0])
+        for worker in worker_list:
+            if not (id_book[worker].cargo == 1 and id_book[worker].cargo.wood >= 80):
+                worker_list.remove(worker)
+        identification = ''
+        if len(worker_list) != 0:
+            identification = worker_list[0]
+        work_location = list_tiles_need_city[0]
+        work_list_dictionary[identification] = work_location
+
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
@@ -147,6 +205,13 @@ def agent(observation, configuration):
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
+            if unit.id in work_list_dictionary:
+                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build():
+                    print('success')
+                    actions.append(unit.build_city())
+                else:
+                    print('road to success')
+                    actions.append(move(unit, work_list_dictionary[unit.id]))
             closest_dist_city = math.inf
             closest_city_tile = None
             closest_dist_resource = math.inf
