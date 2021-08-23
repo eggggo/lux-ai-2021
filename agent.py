@@ -133,6 +133,7 @@ def agent(observation, configuration):
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
+    #could potentially optimize spawn location of workers
     workers_to_build = num_cityTiles - len(player.units)
     for name, city in player.cities.items():
         for cityTile in city.citytiles:
@@ -219,11 +220,12 @@ def agent(observation, configuration):
                     if (cell.citytile is not None) and cell.citytile.cityid == game_state.id:
                         necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
 
-                #if turns_until_night > 6 and unit.can_build(game_state.map):
-                #   actions.append(unit.build_city())
-
-                if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/10 and \
-                    accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
+                building_constant_a = 11
+                building_constant_b = 5
+                if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
+                    actions.append(unit.build_city())
+                elif (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
+                    accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
                     actions.append(unit.build_city())
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
