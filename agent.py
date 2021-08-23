@@ -22,7 +22,9 @@ units_collected_per_turn_coal = 5
 units_collected_per_turn_uranium = 2
 full_day_night_cycle_length = 40
 less_fuel_needed_per_night_constant = 5
-current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
+
+# if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
+current_default_fuel_needed_to_survive_a_full_night = 300 
 worker_cooldown = 2
 night_length = 10
 
@@ -49,7 +51,8 @@ def agent(observation, configuration):
     turns_until_night = turns_until_new_cycle - night_length
     if turns_until_night < 0:
         turns_until_night = 0
-
+    
+    # a list of cells that have resources
     resource_tiles: list[Cell] = []
     for y in range(height):
         for x in range(width):
@@ -60,7 +63,8 @@ def agent(observation, configuration):
             if cell.has_resource():
                 resource_tiles.append(cell)
     
-    # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
+    # add enemy citytiles to the unitLocations list to avoid collisions
+    # added at start of turn, removed at end to make sure no carry over
     unit_destinations: list[Position] = []
     for unit in player.units:
         unit_destinations.append(unit.pos)
@@ -69,7 +73,7 @@ def agent(observation, configuration):
             unit_destinations.append(cityTiles.pos)
 
     num_cityTiles = 0
-    #count number of city tiles owned per turn.
+    # count number of city tiles owned per turn.
     for name, city in player.cities.items():
         for cityTiles in city.citytiles:
             num_cityTiles += 1
