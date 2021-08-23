@@ -5,6 +5,7 @@ from lux.game_map import Cell, RESOURCE_TYPES, Position
 from lux.constants import Constants
 from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
+from resource import findOptimalResource
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
@@ -231,19 +232,24 @@ def agent(observation, configuration):
                         if (action != None):
                             actions.append(action)
 
-            elif unit.get_cargo_space_left() > 90:
+            elif unit.get_cargo_space_left() > 0:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
-                for resource_tile in resource_tiles:
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uranium(): continue
-                    dist = resource_tile.pos.distance_to(unit.pos)
-                    if dist < closest_dist_resource:
-                        closest_dist_resource = dist
-                        closest_resource_tile = resource_tile
-                if closest_resource_tile is not None:
-                    action = move(unit, closest_resource_tile.pos)
+                # for resource_tile in resource_tiles:
+                #     if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
+                #     if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uranium(): continue
+                #     dist = resource_tile.pos.distance_to(unit.pos)
+                #     if dist < closest_dist_resource:
+                #         closest_dist_resource = dist
+                #         closest_resource_tile = resource_tile
+                # if closest_resource_tile is not None:
+                #     action = move(unit, closest_resource_tile.pos)
+                #     if (action != None):
+                #         actions.append(action)
+                possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit)
+                if (len(possibleGatheringPositions) > 0):
+                    action = move(unit, possibleGatheringPositions[0][0])
                     if (action != None):
-                        actions.append(action)
+                            actions.append(action)
 
     # add in preferences for which city builds the worker depending on distance from resource
 
