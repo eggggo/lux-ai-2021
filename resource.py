@@ -6,20 +6,27 @@ from lux.constants import Constants
 from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 
+import numpy as np
+
 
 def findOptimalResource(map, researchPoints, unit):
     width, height = map.width, map.height
 
+    # returns true if in bounds
     def in_bounds(pos):
         if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
             return True
         else:
             return False
-
+    
+    # returns arbitrary number ranking best fuel locations
     def valueFunction(fuelAmount, distance):
         return fuelAmount - 5*distance
 
-    resourceMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
+    # maps out resource values workers can attain right now on the map
+
+    # resourceMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
+    resourceMap = np.zeros((height, width))
     for y in range(height):
         for x in range(width):
             cell = map.get_cell(x, y)
@@ -33,7 +40,9 @@ def findOptimalResource(map, researchPoints, unit):
             else:
                 resourceMap[x][y] = 0
     
-    fuelCollectionMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
+    # maps out for each square the amount of resources that can be mined from sitting on it
+    # fuelCollectionMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
+    fuelCollectionMap = np.zeros((height, width))
     for y in range(height):
         for x in range(width):
             fuelCollectionMap[x][y] += resourceMap[x][y]

@@ -7,6 +7,9 @@ from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 from resource import findOptimalResource
 
+import numpy as np
+
+
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 cost_uranium = 200 #research points needed for uranium
