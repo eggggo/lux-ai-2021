@@ -1,4 +1,5 @@
 import math, sys
+from lux import game_constants
 from lux.game import Game
 from lux.game_map import Cell, RESOURCE_TYPES, Position
 from lux.constants import Constants
@@ -52,17 +53,14 @@ def agent(observation, configuration):
             # if cell.has_resource() and not (cell.resource.type == Constants.RESOURCE_TYPES.WOOD and cell.resource.amount < 2 * units_collected_per_turn_wood):
             if cell.has_resource():
                 resource_tiles.append(cell)
-
-    def in_bounds(pos):
-        if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
-            return True
-        else:
-            return False
-
-    #list of all the positions of units to help prevent collisions
-    unit_locations: list[Position] = []
+    
+    # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
+    unit_destinations: list[Position] = []
     for unit in player.units:
-        unit_locations.append(unit.pos)
+        unit_destinations.append(unit.pos)
+    for name, city in opponent.cities.items():
+        for cityTiles in city.citytiles:
+            unit_destinations.append(cityTiles.pos)
 
     num_cityTiles = 0
     #count number of city tiles owned per turn.
@@ -70,13 +68,70 @@ def agent(observation, configuration):
         for cityTiles in city.citytiles:
             num_cityTiles += 1
 
+    def in_bounds(pos):
+        if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
+            return True
+        else:
+            return False
+
+    def rotateRight(dir):
+        if (dir == DIRECTIONS.CENTER):
+            return DIRECTIONS.CENTER
+        elif (dir == DIRECTIONS.NORTH):
+            return DIRECTIONS.EAST
+        elif (dir == DIRECTIONS.EAST):
+            return DIRECTIONS.SOUTH
+        elif (dir == DIRECTIONS.SOUTH):
+            return DIRECTIONS.WEST
+        else:
+            return DIRECTIONS.NORTH
+
+    def rotateLeft(dir):
+        if (dir == DIRECTIONS.CENTER):
+            return DIRECTIONS.CENTER
+        elif (dir == DIRECTIONS.NORTH):
+            return DIRECTIONS.WEST
+        elif (dir == DIRECTIONS.EAST):
+            return DIRECTIONS.NORTH
+        elif (dir == DIRECTIONS.SOUTH):
+            return DIRECTIONS.EAST
+        else:
+            return DIRECTIONS.SOUTH
+
+    def closestFreeDirection(unit, tgt):
+        direct = unit.pos.direction_to(tgt)
+        if (unit.pos.translate(direct, 1) not in unit_destinations):
+            return direct
+        else:
+            if (unit.pos.translate(rotateRight(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(direct), 1))):
+                return rotateRight(direct)
+            elif (unit.pos.translate(rotateLeft(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateLeft(direct), 1))):
+                return rotateLeft(direct)
+            elif (unit.pos.translate(rotateRight(rotateRight(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(rotateRight(direct)), 1))):
+                return rotateRight(rotateRight(direct))
+            else:
+                return DIRECTIONS.CENTER
+
+    def move(unit, tgt):
+        if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
+            action = unit.move(unit.pos.direction_to(tgt))
+            unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
+            return action
+        elif (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
+            action = unit.move(closestFreeDirection(unit, tgt))
+            unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
+            return action
+        else:
+            unit_destinations.append(unit.pos)
+            return None
+
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
     for name, city in player.cities.items():
         for cityTile in city.citytiles:
             if cityTile.can_act():
-                if (len(player.units) < num_cityTiles) and (cityTile.pos not in unit_locations):
+                if (len(player.units) < num_cityTiles):
                     actions.append(cityTile.build_worker())
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
@@ -102,18 +157,19 @@ def agent(observation, configuration):
             #   3. if didn't build city go to nearest city to depo
             #   4. collect resources if >90 cargo space
             if turns_from_home >= turns_until_night and closest_city_tile is not None: #if the turns itll take for you to get home is greater than the turns till night, head home
-                if unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1) not in unit_locations:
-                    unit_locations.remove(unit.pos)
-                    actions.append(unit.move(unit.pos.direction_to(closest_city_tile.pos)))
-                    unit_locations.append(unit.pos.translate(unit.pos.direction_to(closest_city_tile.pos), 1))
+                action = move(unit, closest_city_tile.pos)
+                if (action != None):
+                    actions.append(action)
             elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
-                adjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                adjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
                                              Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
-                mineableAdjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                adjacentTiles = list(filter(lambda pos: in_bounds(pos), adjacentTileOptions))
+                mineableAdjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
                                                      Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
+                mineableAdjacentTiles = list(filter(lambda pos: in_bounds(pos), mineableAdjacentTileOptions))
                 collection_per_night = 0
                 accessible_fuel = 0
 
@@ -161,11 +217,9 @@ def agent(observation, configuration):
                 else:
                     # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
                     if closest_city_tile is not None:
-                        move_dir = unit.pos.direction_to(closest_city_tile.pos)
-                        if unit.pos.translate(move_dir, 1) not in unit_locations:
-                            unit_locations.remove(unit.pos)
-                            actions.append(unit.move(move_dir))
-                            unit_locations.append(unit.pos.translate(move_dir, 1))
+                        action = move(unit, closest_city_tile.pos)
+                        if (action != None):
+                            actions.append(action)
 
             elif unit.get_cargo_space_left() > 90:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
@@ -177,11 +231,9 @@ def agent(observation, configuration):
                         closest_dist_resource = dist
                         closest_resource_tile = resource_tile
                 if closest_resource_tile is not None:
-                    if unit.pos.translate(unit.pos.direction_to(closest_resource_tile.pos), 1) not in unit_locations:
-                        unit_locations.remove(unit.pos)
-                        actions.append(unit.move(unit.pos.direction_to(closest_resource_tile.pos)))
-                        unit_locations.append(unit.pos.translate(unit.pos.direction_to(closest_resource_tile.pos), 1))
-
+                    action = move(unit, closest_resource_tile.pos)
+                    if (action != None):
+                        actions.append(action)
 
     # add in preferences for which city builds the worker depending on distance from resource
 
