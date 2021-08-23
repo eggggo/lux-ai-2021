@@ -171,7 +171,7 @@ def agent(observation, configuration):
             tiles_cell = game_state.map.get_cell_by_pos(tiles)
             if tiles_cell.citytile is not None and tiles_cell.citytile.team == game_state.id:
                 num_adj_cities += 1
-        if num_adj_cities >= 2:
+        if num_adj_cities >= 3:
             list_tiles_need_city.append(posn)
 
     #Id of worker and position of building a city
@@ -291,13 +291,14 @@ def agent(observation, configuration):
                         necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
 
                 building_constant_a = 11
-                building_constant_b = 5
+                building_constant_b = 10
+                building_constant_c = 10
                 if (not workerActioned):
-                    if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
-                        actions.append(unit.build_city())
-                        workerActioned = True
-                    elif (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
-                        accessible_fuel > necessary_fuel_to_keep_city_alive/10) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
+                    #if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
+                        #actions.append(unit.build_city())
+                        #workerActioned = True
+                    if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
+                        accessible_fuel > necessary_fuel_to_keep_city_alive/building_constant_c) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
                         actions.append(unit.build_city())
                         workerActioned = True
                     else:
