@@ -20,6 +20,7 @@ def findOptimalResource(map, researchPoints, unit):
             return False
     
     # returns arbitrary number ranking best fuel locations
+    # more fuel amount is better, closer is better
     def valueFunction(fuelAmount, distance):
         return fuelAmount - 5*distance
 
@@ -54,7 +55,9 @@ def findOptimalResource(map, researchPoints, unit):
                 fuelCollectionMap[x][y] += resourceMap[x][y - 1]
             if (in_bounds(Position(x, y + 1))):
                 fuelCollectionMap[x][y] += resourceMap[x][y + 1]
-
+    
+    # creates a list of pairs (a dictionary)
+    # with position in the first index and its value in the second
     valueList: list[(Position, int)] = []
     for y in range(height):
         for x in range(width):
@@ -65,6 +68,8 @@ def findOptimalResource(map, researchPoints, unit):
     
     def key(item):
         return item[1]
+
+    # returns the valueList dictionary by value high to low
     return sorted(valueList, key=key, reverse=True)
     
 
