@@ -110,6 +110,8 @@ def agent(observation, configuration):
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
+                copyAdjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create copy of list of adjacent tiles
                 adjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
                                              Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
                 mineableAdjacentTiles: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
@@ -117,7 +119,7 @@ def agent(observation, configuration):
                 collection_per_night = 0
                 accessible_fuel = 0
 
-                for posn in adjacentTiles: #filtering to tiles that are both adjacent and mineable
+                for posn in copyAdjacentTiles: #filtering to tiles that are both adjacent and mineable
                     if not in_bounds(posn): #filter adjacent tiles to the in bounds tiles
                         adjacentTiles.remove(posn)
                         mineableAdjacentTiles.remove(posn)
