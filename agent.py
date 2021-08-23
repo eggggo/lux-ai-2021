@@ -180,14 +180,17 @@ def agent(observation, configuration):
     if len(list_tiles_need_city) != 0:
         worker_list = closest_worker(list_tiles_need_city[0])
         for worker in worker_list:
-            if not (id_book[worker].cargo == 1 and id_book[worker].cargo.wood >= 80):
+            if not (id_book[worker].get_cargo_space_left() == 0 and id_book[worker].cargo.wood >= 80):
+                print('filtered')
                 worker_list.remove(worker)
         identification = ''
         if len(worker_list) != 0:
             identification = worker_list[0]
         work_location = list_tiles_need_city[0]
+        print(identification)
+        print(work_location.x)
+        print(work_location.y)
         work_list_dictionary[identification] = work_location
-
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
@@ -207,12 +210,16 @@ def agent(observation, configuration):
         if unit.is_worker() and unit.can_act():
             workerActioned = False
             if unit.id in work_list_dictionary and not workerActioned:
-                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build():
+                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build(game_state.map):
+                    print('hi')
                     actions.append(unit.build_city())
                     workerActioned = True
                 else:
-                    actions.append(move(unit, work_list_dictionary[unit.id]))
-                    workerActioned = True
+                    action = actions.append(move(unit, work_list_dictionary[unit.id]))
+                    print('hello')
+                    if action is not None:
+                        actions.append(action)
+                        workerActioned = True
             closest_dist_city = math.inf
             closest_city_tile = None
             closest_dist_resource = math.inf
