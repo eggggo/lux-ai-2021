@@ -178,15 +178,17 @@ def agent(observation, configuration):
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     work_list_dictionary = {}
     if len(list_tiles_need_city) != 0:
-        worker_list = closest_worker(list_tiles_need_city[0])
-        for worker in worker_list:
-            if not (id_book[worker].get_cargo_space_left() == 0 and id_book[worker].cargo.wood >= 80):
-                worker_list.remove(worker)
-        identification = ''
-        if len(worker_list) != 0:
-            identification = worker_list[0]
-        work_location = list_tiles_need_city[0]
-        work_list_dictionary[identification] = work_location
+        for tiles in list_tiles_need_city:
+            worker_list = closest_worker(tiles)
+            for worker in worker_list:
+                if not (id_book[worker].get_cargo_space_left() == 0 and id_book[worker].cargo.wood >= 80):
+                    worker_list.remove(worker)
+            identification = ''
+            if len(worker_list) != 0:
+                identification = worker_list[0]
+            work_location = tiles
+            if identification != '':
+                work_list_dictionary[identification] = work_location
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
