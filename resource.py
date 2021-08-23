@@ -64,7 +64,7 @@ def findOptimalResource(map, researchPoints, unit, turns_before_night):
     for y in range(height):
         for x in range(width):
             if (fuelCollectionMap[x][y] > 0):
-                turns_to_destination = 2*(abs(unit.pos.x-x) + abs(unit.pos.y-y))
+                turns_to_destination = 2*unit.pos.distance_to(Position(x, y))
                 # closest_resource_position = find_closest_resource(Position(x, y))
                 # collection_rate_closest_resource = fuelCollectionMap[closest_resource_position.x][closest_resource_position.y]
                 # turns_to_closest_resource = 2*(abs(closest_resource_position.x-x) + abs(closest_resource_position.y-y))

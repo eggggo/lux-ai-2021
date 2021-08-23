@@ -138,7 +138,7 @@ def agent(observation, configuration):
         value = 0
         if len(list_of_resources) != 0:
             pos = list_of_resources[0][0]
-            dist_turns = 2 * (abs(prospective_worker.pos.x - pos.x) + abs(prospective_worker.pos.y - pos.y))
+            dist_turns = prospective_worker.pos.distance_to(pos)
             t -= dist_turns
             value = t * list_of_resources[0][1]
         return value
