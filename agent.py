@@ -34,8 +34,8 @@ def agent(observation, configuration):
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
 
-    full_day_night_cycle_length = GAME_PARAMS['DAY_LENGTH'] + GAME_PARAMS['NIGHT_LENGTH']
-    turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
+    FULL_DAY_NIGHT_CYCLE_LENGTH = GAME_PARAMS['DAY_LENGTH'] + GAME_PARAMS['NIGHT_LENGTH']
+    turns_until_new_cycle = FULL_DAY_NIGHT_CYCLE_LENGTH - (game_state.turn % FULL_DAY_NIGHT_CYCLE_LENGTH)
     turns_until_night = turns_until_new_cycle - GAME_PARAMS['NIGHT_LENGTH']
     if turns_until_night < 0:
         turns_until_night = 0
