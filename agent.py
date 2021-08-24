@@ -5,25 +5,15 @@ from lux.game_map import Cell, RESOURCE_TYPES, Position
 from lux.constants import Constants
 from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
-from fuel import findOptimalResource
+import fuel
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
-cost_uranium = 200 #research points needed for uranium
-cost_coal = 50 #research points needed for coal
-fuel_per_unit_wood = 1
-fuel_per_unit_coal = 10
-fuel_per_unit_uranium = 40
-units_collected_per_turn_wood = 20
-units_collected_per_turn_coal = 5
-units_collected_per_turn_uranium = 2
-full_day_night_cycle_length = 40
-less_fuel_needed_per_night_constant = 5
-current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
-worker_cooldown = 2
-night_length = 10
+
 wood_on_map_initial = 0
 mining_spots = []
+
+GAME_PARAMS = GAME_CONSTANTS['PARAMETERS']
 
 def agent(observation, configuration):
     global game_state
@@ -40,63 +30,32 @@ def agent(observation, configuration):
     actions = []
 
     ### AI Code goes down here! ### s
-    player = game_state.players[observation.player]
-    opponent = game_state.players[(observation.player + 1) % 2]
-    width, height = game_state.map.width, game_state.map.height
-
-    turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
-    turns_until_night = turns_until_new_cycle - night_length
-    if turns_until_night < 0:
-        turns_until_night = 0
-
-    # clumping
-    global mining_spots
-    if game_state.turn % 2 == 0:
-        mining_spots = []
-
-    # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
-    unit_destinations: list[Position] = []
-    for unit in player.units:
-        unit_destinations.append(unit.pos)
-    for name, city in opponent.cities.items():
-        for cityTiles in city.citytiles:
-            unit_destinations.append(cityTiles.pos)
-
-    friendlyCityTiles: list[Position] = []
-    num_cityTiles = 0
-    for name, city in player.cities.items():
-        for cityTiles in city.citytiles:
-            num_cityTiles +=1
-            friendlyCityTiles.append(cityTiles.pos)
-            if (cityTiles.pos in unit_destinations):
-                unit_destinations.remove(cityTiles.pos)
-
     def in_bounds(pos):
         if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
             return True
         else:
             return False
 
-    def rotateRight(dir):
-        if (dir == DIRECTIONS.CENTER):
+    def rotate_right(direction):
+        if direction == DIRECTIONS.CENTER:
             return DIRECTIONS.CENTER
-        elif (dir == DIRECTIONS.NORTH):
+        elif direction == DIRECTIONS.NORTH:
             return DIRECTIONS.EAST
-        elif (dir == DIRECTIONS.EAST):
+        elif direction == DIRECTIONS.EAST:
             return DIRECTIONS.SOUTH
-        elif (dir == DIRECTIONS.SOUTH):
+        elif direction == DIRECTIONS.SOUTH:
             return DIRECTIONS.WEST
         else:
             return DIRECTIONS.NORTH
 
-    def rotateLeft(dir):
-        if (dir == DIRECTIONS.CENTER):
+    def rotate_left(direction):
+        if direction == DIRECTIONS.CENTER:
             return DIRECTIONS.CENTER
-        elif (dir == DIRECTIONS.NORTH):
+        elif direction == DIRECTIONS.NORTH:
             return DIRECTIONS.WEST
-        elif (dir == DIRECTIONS.EAST):
+        elif direction == DIRECTIONS.EAST:
             return DIRECTIONS.NORTH
-        elif (dir == DIRECTIONS.SOUTH):
+        elif direction == DIRECTIONS.SOUTH:
             return DIRECTIONS.EAST
         else:
             return DIRECTIONS.SOUTH
@@ -106,12 +65,12 @@ def agent(observation, configuration):
         if (unit.pos.translate(direct, 1) not in unit_destinations):
             return direct
         else:
-            if (unit.pos.translate(rotateRight(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(direct), 1))):
-                return rotateRight(direct)
-            elif (unit.pos.translate(rotateLeft(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateLeft(direct), 1))):
-                return rotateLeft(direct)
-            elif (unit.pos.translate(rotateRight(rotateRight(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(rotateRight(direct)), 1))):
-                return rotateRight(rotateRight(direct))
+            if (unit.pos.translate(rotate_right(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotate_right(direct), 1))):
+                return rotate_right(direct)
+            elif (unit.pos.translate(rotate_left(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotate_left(direct), 1))):
+                return rotate_left(direct)
+            elif (unit.pos.translate(rotate_right(rotate_right(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotate_right(rotate_right(direct)), 1))):
+                return rotate_right(rotate_right(direct))
             else:
                 return DIRECTIONS.CENTER
 
@@ -135,11 +94,11 @@ def agent(observation, configuration):
                 unit_destinations.append(unit.pos)
             return None
 
-    #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
+    # given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
     def estimated_value_of_worker(prospective_worker):
         t = turns_until_new_cycle
         # while t > 0:
-        list_of_resources = findOptimalResource(game_state.map, player.research_points, prospective_worker, turns_until_night)
+        list_of_resources = fuel.findOptimalResource(game_state.map, player.research_points, prospective_worker, turns_until_night)
         value = 0
         if len(list_of_resources) != 0:
             pos = list_of_resources[0][0]
@@ -148,27 +107,60 @@ def agent(observation, configuration):
             value = t * list_of_resources[0][1]
         return value
 
-    estimated_total_value_of_workers = 0
-
     def closest_worker(pos):
         dictionary_workers = {}
         for worker in player.units:
             dictionary_workers[worker.id] = worker.pos.distance_to(pos)
         sorted_dictionary_workers = dict(sorted(dictionary_workers.items(), key=lambda kv: kv[1]))
-        list_ids: list[str] = []
+        list_ids = []
         for iden, distan in sorted_dictionary_workers.items():
             list_ids.append(iden)
         return list_ids
 
     def adjacent_tiles(pos):
-        adjacent_tile_list_clone: list[Position] = [Position(pos.x + 1, pos.y), Position(pos.x - 1, pos.y),
+        adjacent_tile_list_clone = [Position(pos.x + 1, pos.y), Position(pos.x - 1, pos.y),
                                               Position(pos.x, pos.y + 1), Position(pos.x, pos.y - 1)]
-        adjacent_tile_list: list[Position] = [Position(pos.x+1, pos.y), Position(pos.x-1, pos.y),
+        adjacent_tile_list = [Position(pos.x+1, pos.y), Position(pos.x-1, pos.y),
                                               Position(pos.x, pos.y+1), Position(pos.x, pos.y-1)]
         for square in adjacent_tile_list_clone:
             if not in_bounds(square):
                 adjacent_tile_list.remove(square)
         return adjacent_tile_list
+
+    player = game_state.players[observation.player]
+    opponent = game_state.players[(observation.player + 1) % 2]
+    width, height = game_state.map.width, game_state.map.height
+
+    FULL_DAY_NIGHT_CYCLE_LENGTH = GAME_PARAMS['DAY_LENGTH'] + GAME_PARAMS['NIGHT_LENGTH']
+    turns_until_new_cycle = FULL_DAY_NIGHT_CYCLE_LENGTH - (game_state.turn % FULL_DAY_NIGHT_CYCLE_LENGTH)
+    turns_until_night = turns_until_new_cycle - GAME_PARAMS['NIGHT_LENGTH']
+    if turns_until_night < 0:
+        turns_until_night = 0
+
+    # clumping
+    # update mining_spots every 2 turns
+    global mining_spots
+    if game_state.turn % 2 == 0:
+        mining_spots = []
+
+    # add enemy citytiles to the unit_destinations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
+    unit_destinations = []
+    for unit in player.units:
+        unit_destinations.append(unit.pos)
+    for name, city in opponent.cities.items():
+        for cityTiles in city.citytiles:
+            unit_destinations.append(cityTiles.pos)
+
+    friendlyCityTiles = []
+    num_cityTiles = 0
+    for name, city in player.cities.items():
+        for cityTiles in city.citytiles:
+            num_cityTiles += 1
+            friendlyCityTiles.append(cityTiles.pos)
+            if (cityTiles.pos in unit_destinations):
+                unit_destinations.remove(cityTiles.pos)
+
+    estimated_total_value_of_workers = 0
 
     id_book = {}
     for unit in player.units:
@@ -177,8 +169,8 @@ def agent(observation, configuration):
     units_built = 0
     cities_built = 1
 
-    #list of available building tiles on the map
-    available: list[Position] = []
+    # list of available building tiles on the map
+    available = []
     wood_on_map = 0
     for y in range(height):
         for x in range(width):
@@ -193,13 +185,13 @@ def agent(observation, configuration):
         wood_on_map_initial = wood_on_map
     threshold_use_other = .4
     wood_reliance = 0
-    if wood_on_map_initial*threshold_use_other >= wood_on_map:
+    if wood_on_map_initial * threshold_use_other >= wood_on_map:
         wood_reliance = 0
-    #list of tiles with adjacent tiles of more than 1 city
+    # list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
-    list_tiles_need_city: list[Position] = []
+    list_tiles_need_city = []
     for posn in available:
-        adj_tile: list[Position] = adjacent_tiles(posn)
+        adj_tile = adjacent_tiles(posn)
         num_adj_cities = 0
         for tiles in adj_tile:
             tiles_cell = game_state.map.get_cell_by_pos(tiles)
@@ -208,7 +200,7 @@ def agent(observation, configuration):
         if num_adj_cities >= 3:
             list_tiles_need_city.append(posn)
 
-    #Id of worker and position of building a city
+    # Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     work_list_dictionary = {}
     if len(list_tiles_need_city) != 0:
@@ -226,7 +218,7 @@ def agent(observation, configuration):
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
-    #could potentially optimize spawn location of workers
+    # could potentially optimize spawn location of workers
     workers_to_build = num_cityTiles - len(player.units)
     power_needed = 0
     for name, city in player.cities.items():
@@ -236,10 +228,10 @@ def agent(observation, configuration):
                 if workers_to_build > 0:
                     actions.append(cityTile.build_worker())
                     workers_to_build -= 1
-                elif player.research_points < cost_uranium:
+                elif player.research_points < GAME_PARAMS['RESEARCH_REQUIREMENTS']['URANIUM']:
                     actions.append(cityTile.research())
 
-    #clumping measures:
+    # clumping measures:
 
 
     # we iterate over all our units and do something with them
@@ -266,7 +258,7 @@ def agent(observation, configuration):
                         if dist < closest_dist_city:
                             closest_dist_city = dist
                             closest_city_tile = city_tile
-            turns_from_home = closest_dist_city * worker_cooldown
+            turns_from_home = closest_dist_city * GAME_PARAMS['UNIT_ACTION_COOLDOWN']['WORKER']
             # current action flow listed off priority: 
             #   1. go home if close to night
             #   2. build city if sustainable and have 100 resource
@@ -277,64 +269,64 @@ def agent(observation, configuration):
                 if (action != None):
                     actions.append(action)
                     workerActioned = True
-            elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
+            elif unit.get_cargo_space_left() == 0: # if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
-                adjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
+                adjacentTileOptions = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] # create list of adjacent tiles
                 adjacentTiles = list(filter(lambda pos: in_bounds(pos), adjacentTileOptions))
-                mineableAdjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
+                mineableAdjacentTileOptions = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] # create list of adjacent tiles
                 mineableAdjacentTiles = list(filter(lambda pos: in_bounds(pos), mineableAdjacentTileOptions))
                 collection_per_night = 0
                 accessible_fuel = 0
 
-                for posn in adjacentTiles: #filtering to tiles that are both adjacent and mineable
-                    if not in_bounds(posn): #filter adjacent tiles to the in bounds tiles
+                for posn in adjacentTiles: # filtering to tiles that are both adjacent and mineable
+                    if not in_bounds(posn): # filter adjacent tiles to the in bounds tiles
                         adjacentTiles.remove(posn)
                         mineableAdjacentTiles.remove(posn)
                     else:
                         cell = game_state.map.get_cell_by_pos(posn)
-                        if cell.has_resource(): #filter adjacent tiles to the mineable adjacent tiles
+                        if cell.has_resource(): # filter adjacent tiles to the mineable adjacent tiles
                             if player.researched_uranium() and cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
-                                if cell.resource.amount < units_collected_per_turn_uranium:
-                                    collection_per_night += cell.resource.amount * fuel_per_unit_uranium
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_uranium
+                                if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['URANIUM']:
+                                    collection_per_night += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
                                 else:
-                                    collection_per_night += units_collected_per_turn_uranium * fuel_per_unit_uranium
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_uranium
+                                    collection_per_night += GAME_PARAMS['WORKER_COLLECTION_RATE']['URANIUM'] * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
                             elif player.researched_coal() and cell.resource.type == Constants.RESOURCE_TYPES.COAL:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
-                                if cell.resource.amount < units_collected_per_turn_coal:
-                                    collection_per_night += cell.resource.amount * fuel_per_unit_coal
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_coal
+                                if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['COAL']:
+                                    collection_per_night += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
                                 else:
-                                    collection_per_night += units_collected_per_turn_coal * fuel_per_unit_coal
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_coal
+                                    collection_per_night += GAME_PARAMS['WORKER_COLLECTION_RATE']['COAL'] * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
                             elif cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
-                                if cell.resource.amount < units_collected_per_turn_wood:
-                                    collection_per_night += cell.resource.amount * fuel_per_unit_wood
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_wood
+                                if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['WOOD']:
+                                    collection_per_night += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
                                 else:
-                                    collection_per_night += units_collected_per_turn_wood * fuel_per_unit_wood
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_wood
+                                    collection_per_night += GAME_PARAMS['WORKER_COLLECTION_RATE']['WOOD'] * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
                         else:
                             mineableAdjacentTiles.remove(posn)
-                necessary_fuel_to_keep_city_alive = current_default_fuel_needed_to_survive_a_full_night
+                necessary_fuel_to_keep_city_alive = GAME_PARAMS['LIGHT_UPKEEP']['CITY'] * GAME_PARAMS['NIGHT_LENGTH']
                 for tile in adjacentTiles:
                     cell = game_state.map.get_cell_by_pos(tile)
                     if (cell.citytile is not None) and cell.citytile.cityid == game_state.id:
-                        necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
+                        necessary_fuel_to_keep_city_alive -= GAME_PARAMS['CITY_ADJACENCY_BONUS']
 
                 building_constant_a = 11
                 building_constant_b = 10
                 building_constant_c = 10
-                building_constant_d = 1.2 #added to account for the extra city built, as it isnt accounted for inherintly in power_needed
+                building_constant_d = 1.2 # added to account for the extra city built, as it isnt accounted for inherintly in power_needed
                 if (not workerActioned):
-                    #if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
+                    # if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
                         #actions.append(unit.build_city())
                         #workerActioned = True
                     # if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
@@ -356,9 +348,9 @@ def agent(observation, configuration):
 
             elif unit.get_cargo_space_left() > 0 and not workerActioned:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
-                possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night)
+                possibleGatheringPositions = fuel.findOptimalResource(game_state.map, player.research_points, unit, turns_until_night)
                 if (len(possibleGatheringPositions) > 0):
-                    gathering_locs: list[Position] = []
+                    gathering_locs = []
                     for pgp in possibleGatheringPositions:
                         gathering_locs.append(pgp[0])
                     for spot in mining_spots:
