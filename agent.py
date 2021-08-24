@@ -30,38 +30,6 @@ def agent(observation, configuration):
     actions = []
 
     ### AI Code goes down here! ### s
-    player = game_state.players[observation.player]
-    opponent = game_state.players[(observation.player + 1) % 2]
-    width, height = game_state.map.width, game_state.map.height
-
-    FULL_DAY_NIGHT_CYCLE_LENGTH = GAME_PARAMS['DAY_LENGTH'] + GAME_PARAMS['NIGHT_LENGTH']
-    turns_until_new_cycle = FULL_DAY_NIGHT_CYCLE_LENGTH - (game_state.turn % FULL_DAY_NIGHT_CYCLE_LENGTH)
-    turns_until_night = turns_until_new_cycle - GAME_PARAMS['NIGHT_LENGTH']
-    if turns_until_night < 0:
-        turns_until_night = 0
-
-    # update mining_spots every 2 turns
-    global mining_spots
-    if game_state.turn % 2 == 0:
-        mining_spots = []
-
-    # add enemy citytiles to the unit_destinations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
-    unit_destinations = []
-    for unit in player.units:
-        unit_destinations.append(unit.pos)
-    for name, city in opponent.cities.items():
-        for cityTiles in city.citytiles:
-            unit_destinations.append(cityTiles.pos)
-
-    friendlyCityTiles = []
-    num_cityTiles = 0
-    for name, city in player.cities.items():
-        for cityTiles in city.citytiles:
-            num_cityTiles += 1
-            friendlyCityTiles.append(cityTiles.pos)
-            if (cityTiles.pos in unit_destinations):
-                unit_destinations.remove(cityTiles.pos)
-
     def in_bounds(pos):
         if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
             return True
@@ -139,8 +107,6 @@ def agent(observation, configuration):
             value = t * list_of_resources[0][1]
         return value
 
-    estimated_total_value_of_workers = 0
-
     def closest_worker(pos):
         dictionary_workers = {}
         for worker in player.units:
@@ -160,6 +126,40 @@ def agent(observation, configuration):
             if not in_bounds(square):
                 adjacent_tile_list.remove(square)
         return adjacent_tile_list
+
+    player = game_state.players[observation.player]
+    opponent = game_state.players[(observation.player + 1) % 2]
+    width, height = game_state.map.width, game_state.map.height
+
+    FULL_DAY_NIGHT_CYCLE_LENGTH = GAME_PARAMS['DAY_LENGTH'] + GAME_PARAMS['NIGHT_LENGTH']
+    turns_until_new_cycle = FULL_DAY_NIGHT_CYCLE_LENGTH - (game_state.turn % FULL_DAY_NIGHT_CYCLE_LENGTH)
+    turns_until_night = turns_until_new_cycle - GAME_PARAMS['NIGHT_LENGTH']
+    if turns_until_night < 0:
+        turns_until_night = 0
+
+    # update mining_spots every 2 turns
+    global mining_spots
+    if game_state.turn % 2 == 0:
+        mining_spots = []
+
+    # add enemy citytiles to the unit_destinations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
+    unit_destinations = []
+    for unit in player.units:
+        unit_destinations.append(unit.pos)
+    for name, city in opponent.cities.items():
+        for cityTiles in city.citytiles:
+            unit_destinations.append(cityTiles.pos)
+
+    friendlyCityTiles = []
+    num_cityTiles = 0
+    for name, city in player.cities.items():
+        for cityTiles in city.citytiles:
+            num_cityTiles += 1
+            friendlyCityTiles.append(cityTiles.pos)
+            if (cityTiles.pos in unit_destinations):
+                unit_destinations.remove(cityTiles.pos)
+
+    estimated_total_value_of_workers = 0
 
     id_book = {}
     for unit in player.units:
