@@ -13,7 +13,7 @@ game_state = None
 wood_on_map_initial = 0
 mining_spots = []
 
-GAME_PARAMS = GAME_PARAMS
+GAME_PARAMS = GAME_CONSTANTS['PARAMETERS']
 
 def agent(observation, configuration):
     global game_state
@@ -40,7 +40,7 @@ def agent(observation, configuration):
     if turns_until_night < 0:
         turns_until_night = 0
 
-    # clumping
+    # update mining_spots every 2 turns
     global mining_spots
     if game_state.turn % 2 == 0:
         mining_spots = []
