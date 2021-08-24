@@ -175,10 +175,13 @@ def agent(observation, configuration):
         value = 0
         if len(list_of_resources) != 0:
             pos = list_of_resources[0][0]
-            dist_turns = prospective_worker.pos.distance_to(pos)
+            dist_turns = 2 * prospective_worker.pos.distance_to(pos)
             t -= dist_turns
             if t < 0:
                 t = 0
+            value = t * fuelCollectionMap[prospective_worker.pos.x][prospective_worker.pos.y]
+            times_back_to_city = value // 100
+            t -= times_back_to_city*dist_turns
             value = t * fuelCollectionMap[prospective_worker.pos.x][prospective_worker.pos.y]
         return value
 
@@ -245,12 +248,11 @@ def agent(observation, configuration):
             tiles_cell = game_state.map.get_cell_by_pos(tiles)
             if tiles_cell.citytile is not None and tiles_cell.citytile.team == game_state.id:
                 num_adj_cities += 1
-        if num_adj_cities >= 3:
+        if num_adj_cities >= 5:
             list_tiles_need_city.append(posn)
 
     if estimated_total_value_of_workers > available_fuel_on_map:
         estimated_total_value_of_workers = available_fuel_on_map
-    print(estimated_total_value_of_workers)
 
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
@@ -276,8 +278,10 @@ def agent(observation, configuration):
 
     workers_to_build = num_cityTiles - len(player.units)
     power_needed = 0
+    power_obtained = 0
     for name, city in player.cities.items():
-        power_needed += city.get_light_upkeep()
+        power_needed += city.get_light_upkeep() * 10
+        power_obtained += city.fuel
         for cityTile in city.citytiles:
             if cityTile.can_act():
                 if workers_to_build > 0:
@@ -285,8 +289,6 @@ def agent(observation, configuration):
                     workers_to_build -= 1
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
-    print(power_needed)
-    print(estimated_total_value_of_workers)
     #clumping measures:
 
 
@@ -297,6 +299,7 @@ def agent(observation, configuration):
             if unit.id in work_list_dictionary and not workerActioned:
                 if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build(game_state.map):
                     actions.append(unit.build_city())
+                    available.remove(unit.pos)
                     cities_built_this_turn.append(unit.pos)
                     workerActioned = True
                 else:
@@ -390,13 +393,28 @@ def agent(observation, configuration):
                     #     accessible_fuel > necessary_fuel_to_keep_city_alive/building_constant_c) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
                     #     actions.append(unit.build_city())
                     #     workerActioned = True
-                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 20*cities_built) and unit.cargo.wood >= wood_reliance and unit.can_build(game_state.map):
+                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 20*cities_built) and unit.cargo.wood >= wood_reliance and unit.can_build(game_state.map):
+                        if closest_city_tile is not None:
+                            if unit.pos.distance_to(closest_city_tile.pos) == 2:
+                                adjacent_tiles_to_unit = adjacent_tiles(unit.pos)
+                                possible_movements: list[Position] = []
+                                for tile in adjacent_tiles_to_unit:
+                                    if closest_city_tile.pos.distance_to(tile) == 1 and (tile in available):
+                                        possible_movements.append(tile)
+                                if len(possible_movements) != 0:
+                                    action = move(unit, possible_movements[0])
+                                    if (action != None):
+                                        actions.append(action)
+                                        workerActioned = True
+
                         actions.append(unit.build_city())
+                        available.remove(unit.pos)
                         cities_built_this_turn.append(unit.pos)
                         units_built += 1
                         cities_built += 1
                         workerActioned = True
-                    elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 20*cities_built) and unit.cargo.wood >= wood_reliance and not unit.can_build(game_state.map):
+                    elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200*cities_built) and unit.cargo.wood >= wood_reliance and not unit.can_build(game_state.map):
+                        estimated_total_value_of_workers += estimated_value_of_worker(unit)
                         best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
                         optimal_location: list[Position] = []
                         for loc in best_mining_locations:
@@ -439,7 +457,8 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    
+    print(power_needed + 20*cities_built)
+    print(estimated_total_value_of_workers)
     return actions
 
 
