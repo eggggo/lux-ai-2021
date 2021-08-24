@@ -46,14 +46,14 @@ def agent(observation, configuration):
         mining_spots = []
 
     # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
-    unit_destinations: list[Position] = []
+    unit_destinations = []
     for unit in player.units:
         unit_destinations.append(unit.pos)
     for name, city in opponent.cities.items():
         for cityTiles in city.citytiles:
             unit_destinations.append(cityTiles.pos)
 
-    friendlyCityTiles: list[Position] = []
+    friendlyCityTiles = []
     num_cityTiles = 0
     for name, city in player.cities.items():
         for cityTiles in city.citytiles:
@@ -146,15 +146,15 @@ def agent(observation, configuration):
         for worker in player.units:
             dictionary_workers[worker.id] = worker.pos.distance_to(pos)
         sorted_dictionary_workers = dict(sorted(dictionary_workers.items(), key=lambda kv: kv[1]))
-        list_ids: list[str] = []
+        list_ids = []
         for iden, distan in sorted_dictionary_workers.items():
             list_ids.append(iden)
         return list_ids
 
     def adjacent_tiles(pos):
-        adjacent_tile_list_clone: list[Position] = [Position(pos.x + 1, pos.y), Position(pos.x - 1, pos.y),
+        adjacent_tile_list_clone = [Position(pos.x + 1, pos.y), Position(pos.x - 1, pos.y),
                                               Position(pos.x, pos.y + 1), Position(pos.x, pos.y - 1)]
-        adjacent_tile_list: list[Position] = [Position(pos.x+1, pos.y), Position(pos.x-1, pos.y),
+        adjacent_tile_list = [Position(pos.x+1, pos.y), Position(pos.x-1, pos.y),
                                               Position(pos.x, pos.y+1), Position(pos.x, pos.y-1)]
         for square in adjacent_tile_list_clone:
             if not in_bounds(square):
@@ -169,7 +169,7 @@ def agent(observation, configuration):
     cities_built = 1
 
     #list of available building tiles on the map
-    available: list[Position] = []
+    available = []
     wood_on_map = 0
     for y in range(height):
         for x in range(width):
@@ -188,9 +188,9 @@ def agent(observation, configuration):
         wood_reliance = 0
     #list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
-    list_tiles_need_city: list[Position] = []
+    list_tiles_need_city = []
     for posn in available:
-        adj_tile: list[Position] = adjacent_tiles(posn)
+        adj_tile = adjacent_tiles(posn)
         num_adj_cities = 0
         for tiles in adj_tile:
             tiles_cell = game_state.map.get_cell_by_pos(tiles)
@@ -272,10 +272,10 @@ def agent(observation, configuration):
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
-                adjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                adjacentTileOptions = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
                                              Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
                 adjacentTiles = list(filter(lambda pos: in_bounds(pos), adjacentTileOptions))
-                mineableAdjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
+                mineableAdjacentTileOptions = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
                                                      Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
                 mineableAdjacentTiles = list(filter(lambda pos: in_bounds(pos), mineableAdjacentTileOptions))
                 collection_per_night = 0
@@ -349,7 +349,7 @@ def agent(observation, configuration):
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
                 possibleGatheringPositions = fuel.findOptimalResource(game_state.map, player.research_points, unit, turns_until_night)
                 if (len(possibleGatheringPositions) > 0):
-                    gathering_locs: list[Position] = []
+                    gathering_locs = []
                     for pgp in possibleGatheringPositions:
                         gathering_locs.append(pgp[0])
                     for spot in mining_spots:
