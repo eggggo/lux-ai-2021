@@ -45,7 +45,7 @@ def agent(observation, configuration):
     if game_state.turn % 2 == 0:
         mining_spots = []
 
-    # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
+    # add enemy citytiles to the unit_destinations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
     unit_destinations = []
     for unit in player.units:
         unit_destinations.append(unit.pos)
@@ -57,7 +57,7 @@ def agent(observation, configuration):
     num_cityTiles = 0
     for name, city in player.cities.items():
         for cityTiles in city.citytiles:
-            num_cityTiles +=1
+            num_cityTiles += 1
             friendlyCityTiles.append(cityTiles.pos)
             if (cityTiles.pos in unit_destinations):
                 unit_destinations.remove(cityTiles.pos)
@@ -68,26 +68,26 @@ def agent(observation, configuration):
         else:
             return False
 
-    def rotateRight(dir):
-        if (dir == DIRECTIONS.CENTER):
+    def rotate_right(direction):
+        if direction == DIRECTIONS.CENTER:
             return DIRECTIONS.CENTER
-        elif (dir == DIRECTIONS.NORTH):
+        elif direction == DIRECTIONS.NORTH:
             return DIRECTIONS.EAST
-        elif (dir == DIRECTIONS.EAST):
+        elif direction == DIRECTIONS.EAST:
             return DIRECTIONS.SOUTH
-        elif (dir == DIRECTIONS.SOUTH):
+        elif direction == DIRECTIONS.SOUTH:
             return DIRECTIONS.WEST
         else:
             return DIRECTIONS.NORTH
 
-    def rotateLeft(dir):
-        if (dir == DIRECTIONS.CENTER):
+    def rotate_left(direction):
+        if direction == DIRECTIONS.CENTER:
             return DIRECTIONS.CENTER
-        elif (dir == DIRECTIONS.NORTH):
+        elif direction == DIRECTIONS.NORTH:
             return DIRECTIONS.WEST
-        elif (dir == DIRECTIONS.EAST):
+        elif direction == DIRECTIONS.EAST:
             return DIRECTIONS.NORTH
-        elif (dir == DIRECTIONS.SOUTH):
+        elif direction == DIRECTIONS.SOUTH:
             return DIRECTIONS.EAST
         else:
             return DIRECTIONS.SOUTH
@@ -97,12 +97,12 @@ def agent(observation, configuration):
         if (unit.pos.translate(direct, 1) not in unit_destinations):
             return direct
         else:
-            if (unit.pos.translate(rotateRight(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(direct), 1))):
-                return rotateRight(direct)
-            elif (unit.pos.translate(rotateLeft(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateLeft(direct), 1))):
-                return rotateLeft(direct)
-            elif (unit.pos.translate(rotateRight(rotateRight(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(rotateRight(direct)), 1))):
-                return rotateRight(rotateRight(direct))
+            if (unit.pos.translate(rotate_right(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotate_right(direct), 1))):
+                return rotate_right(direct)
+            elif (unit.pos.translate(rotate_left(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotate_left(direct), 1))):
+                return rotate_left(direct)
+            elif (unit.pos.translate(rotate_right(rotate_right(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotate_right(rotate_right(direct)), 1))):
+                return rotate_right(rotate_right(direct))
             else:
                 return DIRECTIONS.CENTER
 
@@ -126,7 +126,7 @@ def agent(observation, configuration):
                 unit_destinations.append(unit.pos)
             return None
 
-    #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
+    # given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
     def estimated_value_of_worker(prospective_worker):
         t = turns_until_new_cycle
         # while t > 0:
@@ -168,7 +168,7 @@ def agent(observation, configuration):
     units_built = 0
     cities_built = 1
 
-    #list of available building tiles on the map
+    # list of available building tiles on the map
     available = []
     wood_on_map = 0
     for y in range(height):
@@ -186,7 +186,7 @@ def agent(observation, configuration):
     wood_reliance = 0
     if wood_on_map_initial*threshold_use_other >= wood_on_map:
         wood_reliance = 0
-    #list of tiles with adjacent tiles of more than 1 city
+    # list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
     list_tiles_need_city = []
     for posn in available:
@@ -199,7 +199,7 @@ def agent(observation, configuration):
         if num_adj_cities >= 3:
             list_tiles_need_city.append(posn)
 
-    #Id of worker and position of building a city
+    # Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     work_list_dictionary = {}
     if len(list_tiles_need_city) != 0:
@@ -217,7 +217,7 @@ def agent(observation, configuration):
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
-    #could potentially optimize spawn location of workers
+    # could potentially optimize spawn location of workers
     workers_to_build = num_cityTiles - len(player.units)
     power_needed = 0
     for name, city in player.cities.items():
@@ -230,7 +230,7 @@ def agent(observation, configuration):
                 elif player.research_points < GAME_PARAMS['RESEARCH_REQUIREMENTS']['URANIUM']:
                     actions.append(cityTile.research())
 
-    #clumping measures:
+    # clumping measures:
 
 
     # we iterate over all our units and do something with them
@@ -268,26 +268,26 @@ def agent(observation, configuration):
                 if (action != None):
                     actions.append(action)
                     workerActioned = True
-            elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
+            elif unit.get_cargo_space_left() == 0: # if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 position = unit.pos
                 x_pos = position.x
                 y_pos = position.y
                 adjacentTileOptions = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
+                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] # create list of adjacent tiles
                 adjacentTiles = list(filter(lambda pos: in_bounds(pos), adjacentTileOptions))
                 mineableAdjacentTileOptions = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
+                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] # create list of adjacent tiles
                 mineableAdjacentTiles = list(filter(lambda pos: in_bounds(pos), mineableAdjacentTileOptions))
                 collection_per_night = 0
                 accessible_fuel = 0
 
-                for posn in adjacentTiles: #filtering to tiles that are both adjacent and mineable
-                    if not in_bounds(posn): #filter adjacent tiles to the in bounds tiles
+                for posn in adjacentTiles: # filtering to tiles that are both adjacent and mineable
+                    if not in_bounds(posn): # filter adjacent tiles to the in bounds tiles
                         adjacentTiles.remove(posn)
                         mineableAdjacentTiles.remove(posn)
                     else:
                         cell = game_state.map.get_cell_by_pos(posn)
-                        if cell.has_resource(): #filter adjacent tiles to the mineable adjacent tiles
+                        if cell.has_resource(): # filter adjacent tiles to the mineable adjacent tiles
                             if player.researched_uranium() and cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
                                 if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['URANIUM']:
@@ -323,9 +323,9 @@ def agent(observation, configuration):
                 building_constant_a = 11
                 building_constant_b = 10
                 building_constant_c = 10
-                building_constant_d = 1.2 #added to account for the extra city built, as it isnt accounted for inherintly in power_needed
+                building_constant_d = 1.2 # added to account for the extra city built, as it isnt accounted for inherintly in power_needed
                 if (not workerActioned):
-                    #if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
+                    # if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
                         #actions.append(unit.build_city())
                         #workerActioned = True
                     # if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
