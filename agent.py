@@ -185,7 +185,7 @@ def agent(observation, configuration):
         wood_on_map_initial = wood_on_map
     threshold_use_other = .4
     wood_reliance = 0
-    if wood_on_map_initial*threshold_use_other >= wood_on_map:
+    if wood_on_map_initial * threshold_use_other >= wood_on_map:
         wood_reliance = 0
     # list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
