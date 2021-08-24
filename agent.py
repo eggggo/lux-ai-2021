@@ -9,21 +9,11 @@ import fuel
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
-cost_uranium = 200 #research points needed for uranium
-cost_coal = 50 #research points needed for coal
-fuel_per_unit_wood = 1
-fuel_per_unit_coal = 10
-fuel_per_unit_uranium = 40
-units_collected_per_turn_wood = 20
-units_collected_per_turn_coal = 5
-units_collected_per_turn_uranium = 2
-full_day_night_cycle_length = 40
-less_fuel_needed_per_night_constant = 5
-current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
-worker_cooldown = 2
-night_length = 10
+
 wood_on_map_initial = 0
 mining_spots = []
+
+GAME_PARAMS = GAME_PARAMS
 
 def agent(observation, configuration):
     global game_state
@@ -44,8 +34,9 @@ def agent(observation, configuration):
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
 
+    full_day_night_cycle_length = GAME_PARAMS['DAY_LENGTH'] + GAME_PARAMS['NIGHT_LENGTH']
     turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
-    turns_until_night = turns_until_new_cycle - night_length
+    turns_until_night = turns_until_new_cycle - GAME_PARAMS['NIGHT_LENGTH']
     if turns_until_night < 0:
         turns_until_night = 0
 
@@ -236,7 +227,7 @@ def agent(observation, configuration):
                 if workers_to_build > 0:
                     actions.append(cityTile.build_worker())
                     workers_to_build -= 1
-                elif player.research_points < cost_uranium:
+                elif player.research_points < GAME_PARAMS['RESEARCH_REQUIREMENTS']['URANIUM']:
                     actions.append(cityTile.research())
 
     #clumping measures:
@@ -266,7 +257,7 @@ def agent(observation, configuration):
                         if dist < closest_dist_city:
                             closest_dist_city = dist
                             closest_city_tile = city_tile
-            turns_from_home = closest_dist_city * worker_cooldown
+            turns_from_home = closest_dist_city * GAME_PARAMS['UNIT_ACTION_COOLDOWN']['WORKER']
             # current action flow listed off priority: 
             #   1. go home if close to night
             #   2. build city if sustainable and have 100 resource
@@ -299,35 +290,35 @@ def agent(observation, configuration):
                         if cell.has_resource(): #filter adjacent tiles to the mineable adjacent tiles
                             if player.researched_uranium() and cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
-                                if cell.resource.amount < units_collected_per_turn_uranium:
-                                    collection_per_night += cell.resource.amount * fuel_per_unit_uranium
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_uranium
+                                if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['URANIUM']:
+                                    collection_per_night += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
                                 else:
-                                    collection_per_night += units_collected_per_turn_uranium * fuel_per_unit_uranium
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_uranium
+                                    collection_per_night += GAME_PARAMS['WORKER_COLLECTION_RATE']['URANIUM'] * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['URANIUM']
                             elif player.researched_coal() and cell.resource.type == Constants.RESOURCE_TYPES.COAL:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
-                                if cell.resource.amount < units_collected_per_turn_coal:
-                                    collection_per_night += cell.resource.amount * fuel_per_unit_coal
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_coal
+                                if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['COAL']:
+                                    collection_per_night += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
                                 else:
-                                    collection_per_night += units_collected_per_turn_coal * fuel_per_unit_coal
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_coal
+                                    collection_per_night += GAME_PARAMS['WORKER_COLLECTION_RATE']['COAL'] * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['COAL']
                             elif cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
                                 # check if resource is about to be depleted in order to get an accurate count of collection rate
-                                if cell.resource.amount < units_collected_per_turn_wood:
-                                    collection_per_night += cell.resource.amount * fuel_per_unit_wood
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_wood
+                                if cell.resource.amount < GAME_PARAMS['WORKER_COLLECTION_RATE']['WOOD']:
+                                    collection_per_night += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
                                 else:
-                                    collection_per_night += units_collected_per_turn_wood * fuel_per_unit_wood
-                                    accessible_fuel += cell.resource.amount * fuel_per_unit_wood
+                                    collection_per_night += GAME_PARAMS['WORKER_COLLECTION_RATE']['WOOD'] * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
+                                    accessible_fuel += cell.resource.amount * GAME_PARAMS['RESOURCE_TO_FUEL_RATE']['WOOD']
                         else:
                             mineableAdjacentTiles.remove(posn)
-                necessary_fuel_to_keep_city_alive = current_default_fuel_needed_to_survive_a_full_night
+                necessary_fuel_to_keep_city_alive = GAME_PARAMS['LIGHT_UPKEEP']['CITY'] * GAME_PARAMS['NIGHT_LENGTH']
                 for tile in adjacentTiles:
                     cell = game_state.map.get_cell_by_pos(tile)
                     if (cell.citytile is not None) and cell.citytile.cityid == game_state.id:
-                        necessary_fuel_to_keep_city_alive -= less_fuel_needed_per_night_constant
+                        necessary_fuel_to_keep_city_alive -= GAME_PARAMS['CITY_ADJACENCY_BONUS']
 
                 building_constant_a = 11
                 building_constant_b = 10
@@ -356,7 +347,7 @@ def agent(observation, configuration):
 
             elif unit.get_cargo_space_left() > 0 and not workerActioned:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
-                possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night)
+                possibleGatheringPositions = fuel.findOptimalResource(game_state.map, player.research_points, unit, turns_until_night)
                 if (len(possibleGatheringPositions) > 0):
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
