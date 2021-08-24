@@ -72,6 +72,13 @@ def agent(observation, configuration):
         for cityTiles in city.citytiles:
             unit_destinations.append(cityTiles.pos)
 
+    friendlyCityTiles: list[Position] = []
+    for name, city in player.cities.items():
+        for cityTiles in city.citytiles:
+            friendlyCityTiles.append(cityTiles.pos)
+            if (cityTiles.pos in unit_destinations):
+                unit_destinations.remove(cityTiles.pos)
+
     num_cityTiles = 0
     #count number of city tiles owned per turn.
     for name, city in player.cities.items():
@@ -124,17 +131,22 @@ def agent(observation, configuration):
 
     def move(unit, tgt):
         if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
-            unit_destinations.remove(unit.pos)
+            if (unit.pos not in friendlyCityTiles):
+                unit_destinations.remove(unit.pos)
             action = unit.move(unit.pos.direction_to(tgt))
-            unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
+            if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in friendlyCityTiles):
+                unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
             return action
         elif (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
-            unit_destinations.remove(unit.pos)
+            if (unit.pos not in friendlyCityTiles):
+                unit_destinations.remove(unit.pos)
             action = unit.move(closestFreeDirection(unit, tgt))
-            unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
+            if (unit.pos.translate(closestFreeDirection(unit, tgt), 1) not in friendlyCityTiles):
+                unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
             return action
         else:
-            unit_destinations.append(unit.pos)
+            if (unit.pos not in friendlyCityTiles):
+                unit_destinations.append(unit.pos)
             return None
 
     #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
