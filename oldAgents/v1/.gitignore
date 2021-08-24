@@ -1,0 +1,6 @@
+*.pyc
+*.json
+*.log
+*.suo
+*.sqlite
+*.tar.gz

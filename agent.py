@@ -49,17 +49,7 @@ def agent(observation, configuration):
     if turns_until_night < 0:
         turns_until_night = 0
 
-    resource_tiles: list[Cell] = []
-    for y in range(height):
-        for x in range(width):
-            cell = game_state.map.get_cell(x, y)
-            # make sure wood doesn't deplete.  Logic for the number 2 is that by moving adj to the square,
-            # you have a cooldown of two and will passively collect that, depleting the resource if the amount left is less than two times the collection rate
-            # if cell.has_resource() and not (cell.resource.type == Constants.RESOURCE_TYPES.WOOD and cell.resource.amount < 2 * units_collected_per_turn_wood):
-            if cell.has_resource():
-                resource_tiles.append(cell)
-
-    #clumping
+    # clumping
     global mining_spots
     if game_state.turn % 2 == 0:
         mining_spots = []
@@ -73,17 +63,13 @@ def agent(observation, configuration):
             unit_destinations.append(cityTiles.pos)
 
     friendlyCityTiles: list[Position] = []
+    num_cityTiles = 0
     for name, city in player.cities.items():
         for cityTiles in city.citytiles:
+            num_cityTiles +=1
             friendlyCityTiles.append(cityTiles.pos)
             if (cityTiles.pos in unit_destinations):
                 unit_destinations.remove(cityTiles.pos)
-
-    num_cityTiles = 0
-    #count number of city tiles owned per turn.
-    for name, city in player.cities.items():
-        for cityTiles in city.citytiles:
-            num_cityTiles += 1
 
     def in_bounds(pos):
         if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
