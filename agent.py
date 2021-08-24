@@ -23,6 +23,7 @@ current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30
 worker_cooldown = 2
 night_length = 10
 wood_on_map_initial = 0
+mining_spots = []
 
 def agent(observation, configuration):
     global game_state
@@ -57,7 +58,12 @@ def agent(observation, configuration):
             # if cell.has_resource() and not (cell.resource.type == Constants.RESOURCE_TYPES.WOOD and cell.resource.amount < 2 * units_collected_per_turn_wood):
             if cell.has_resource():
                 resource_tiles.append(cell)
-    
+
+    #clumping
+    global mining_spots
+    if game_state.turn % 2 == 0:
+        mining_spots = []
+
     # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
     unit_destinations: list[Position] = []
     for unit in player.units:
@@ -235,6 +241,9 @@ def agent(observation, configuration):
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
 
+    #clumping measures:
+
+
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
@@ -351,11 +360,19 @@ def agent(observation, configuration):
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night)
                 if (len(possibleGatheringPositions) > 0):
-                    action = move(unit, possibleGatheringPositions[0][0])
-                    if (action != None):
+                    gathering_locs: list[Position] = []
+                    for pgp in possibleGatheringPositions:
+                        gathering_locs.append(pgp[0])
+                    for spot in mining_spots:
+                        if spot in gathering_locs:
+                            gathering_locs.remove(spot)
+                    if len(gathering_locs) != 0:
+                        optimal_location = gathering_locs[0]
+                        action = move(unit, optimal_location)
+                        if action != None:
                             actions.append(action)
+                            mining_spots.append(optimal_location)
                             workerActioned = True
-
     # add in preferences for which city builds the worker depending on distance from resource
 
     # you can add debug annotations using the functions in the annotate object
