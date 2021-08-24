@@ -7,7 +7,7 @@ from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 
 
-def findOptimalResource(map, researchPoints, unit, turns_before_night):
+def findOptimalResource(map, researchPoints, unit, turns_before_night, fuelCollectionMap):
     width, height = map.width, map.height
 
     def in_bounds(pos):
@@ -23,33 +23,6 @@ def findOptimalResource(map, researchPoints, unit, turns_before_night):
 
     def valueFunction(fuelAmount, turns_to_reach_resource):
         return fuelAmount*(turns_before_night - z - turns_to_reach_resource) - 40*turns_to_reach_resource
-    resourceMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
-    for y in range(height):
-        for x in range(width):
-            cell = map.get_cell(x, y)
-            if cell.has_resource():
-                if (cell.resource.type == RESOURCE_TYPES.WOOD):
-                    resourceMap[x][y] = 20
-                elif (cell.resource.type == RESOURCE_TYPES.COAL and researchPoints >= 50):
-                    resourceMap[x][y] = 50
-                elif (cell.resource.type == RESOURCE_TYPES.URANIUM and researchPoints >= 200):
-                    resourceMap[x][y] = 80
-            else:
-                resourceMap[x][y] = 0
-    
-    fuelCollectionMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
-    for y in range(height):
-        for x in range(width):
-            fuelCollectionMap[x][y] += resourceMap[x][y]
-            if (in_bounds(Position(x-1, y))):
-                fuelCollectionMap[x][y] += resourceMap[x - 1][y]
-            if (in_bounds(Position(x+1, y))):
-                fuelCollectionMap[x][y] += resourceMap[x + 1][y]
-            if (in_bounds(Position(x, y - 1))):
-                fuelCollectionMap[x][y] += resourceMap[x][y - 1]
-            if (in_bounds(Position(x, y + 1))):
-                fuelCollectionMap[x][y] += resourceMap[x][y + 1]
-
     # def find_closest_resource(pos):
     #     max_dist = math.inf
     #     closest_position = Position(0, 0)
