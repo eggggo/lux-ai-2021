@@ -406,13 +406,13 @@ def agent(observation, configuration):
                                     if (action != None):
                                         actions.append(action)
                                         workerActioned = True
-
-                        actions.append(unit.build_city())
-                        available.remove(unit.pos)
-                        cities_built_this_turn.append(unit.pos)
-                        units_built += 1
-                        cities_built += 1
-                        workerActioned = True
+                        if not workerActioned:
+                            actions.append(unit.build_city())
+                            available.remove(unit.pos)
+                            cities_built_this_turn.append(unit.pos)
+                            units_built += 1
+                            cities_built += 1
+                            workerActioned = True
                     elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200*cities_built) and unit.cargo.wood >= wood_reliance and not unit.can_build(game_state.map):
                         estimated_total_value_of_workers += estimated_value_of_worker(unit)
                         best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
@@ -457,8 +457,6 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    print(power_needed + 20*cities_built)
-    print(estimated_total_value_of_workers)
     return actions
 
 
