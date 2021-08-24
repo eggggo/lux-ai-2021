@@ -22,6 +22,7 @@ less_fuel_needed_per_night_constant = 5
 current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
 worker_cooldown = 2
 night_length = 10
+wood_on_map_initial = 0
 
 def agent(observation, configuration):
     global game_state
@@ -174,11 +175,22 @@ def agent(observation, configuration):
 
     #list of available building tiles on the map
     available: list[Position] = []
+    wood_on_map = 0
     for y in range(height):
         for x in range(width):
             cell = game_state.map.get_cell_by_pos(Position(x, y))
             if not cell.has_resource() and cell.citytile is None:
                 available.append(Position(x, y))
+            if cell.has_resource():
+                if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
+                    wood_on_map += cell.resource.amount
+    global wood_on_map_initial
+    if game_state.turn == 0:
+        wood_on_map_initial = wood_on_map
+    threshold_use_other = .4
+    wood_reliance = 80
+    if wood_on_map_initial*threshold_use_other >= wood_on_map:
+        wood_reliance = 0
     #list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
     list_tiles_need_city: list[Position] = []
@@ -199,7 +211,7 @@ def agent(observation, configuration):
         for tiles in list_tiles_need_city:
             worker_list = closest_worker(tiles)
             for worker in worker_list:
-                if not (id_book[worker].get_cargo_space_left() == 0 and id_book[worker].cargo.wood >= 80):
+                if not (id_book[worker].get_cargo_space_left() == 0 and id_book[worker].cargo.wood >= wood_reliance):
                     worker_list.remove(worker)
             identification = ''
             if len(worker_list) != 0:
@@ -322,7 +334,7 @@ def agent(observation, configuration):
                     #     accessible_fuel > necessary_fuel_to_keep_city_alive/building_constant_c) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
                     #     actions.append(unit.build_city())
                     #     workerActioned = True
-                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 20*cities_built) and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
+                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 20*cities_built) and unit.cargo.wood >= wood_reliance and unit.can_build(game_state.map):
                         actions.append(unit.build_city())
                         units_built += 1
                         cities_built += 1
