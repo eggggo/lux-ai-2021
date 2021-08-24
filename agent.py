@@ -137,6 +137,7 @@ def agent(observation, configuration):
     if turns_until_night < 0:
         turns_until_night = 0
 
+    # clumping
     # update mining_spots every 2 turns
     global mining_spots
     if game_state.turn % 2 == 0:
