@@ -5,7 +5,7 @@ from lux.game_map import Cell, RESOURCE_TYPES, Position
 from lux.constants import Constants
 from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
-from fuel import findOptimalResource
+import fuel
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
@@ -139,7 +139,7 @@ def agent(observation, configuration):
     def estimated_value_of_worker(prospective_worker):
         t = turns_until_new_cycle
         # while t > 0:
-        list_of_resources = findOptimalResource(game_state.map, player.research_points, prospective_worker, turns_until_night)
+        list_of_resources = fuel.findOptimalResource(game_state.map, player.research_points, prospective_worker, turns_until_night)
         value = 0
         if len(list_of_resources) != 0:
             pos = list_of_resources[0][0]
