@@ -50,9 +50,7 @@ def agent(observation, configuration):
         turns_until_night = 0
 
     # clumping
-    global mining_spots
-    if game_state.turn % 2 == 0:
-        mining_spots = []
+    mining_spots = []
 
     # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
     unit_destinations: list[Position] = []
@@ -70,11 +68,6 @@ def agent(observation, configuration):
             friendlyCityTiles.append(cityTiles.pos)
             if (cityTiles.pos in unit_destinations):
                 unit_destinations.remove(cityTiles.pos)
-
-    #account for resetting mining spots if a worker is on a cityTIle
-    for unit in player.units:
-        if (unit.pos in friendlyCityTiles) and (unit.pos in mining_spots):
-            mining_spots.remove(unit.pos)
 
     def in_bounds(pos):
         if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
@@ -520,8 +513,8 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    print(power_needed + 20*cities_built)
-    print(estimated_total_value_of_workers)
+    # print(power_needed + 20*cities_built)
+    # print(estimated_total_value_of_workers)
     return actions
 
 
