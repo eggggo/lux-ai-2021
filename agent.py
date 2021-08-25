@@ -307,7 +307,7 @@ def agent(observation, configuration):
         if turns_until_new_cycle < 10:
             night_turns_to_go = turns_until_new_cycle
         shortage = city.get_light_upkeep() * night_turns_to_go
-        if city.fuel < shortage and len(city.citytiles) > 1:
+        if city.fuel < shortage and len(city.citytiles) > 0:
             tuple_loc = (city.citytiles[0].pos.x, city.citytiles[0].pos.y)
             cities_need_fuel[tuple_loc] = shortage - city.fuel
         power_needed += shortage
