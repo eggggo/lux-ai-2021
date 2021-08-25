@@ -44,30 +44,37 @@ def agent(observation, configuration):
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
 
+    # variable initialization/constants
+    mining_spots = []
+    estimated_total_value_of_workers = 0
+    friendlyCityTiles: list[Position] = []
+    num_cityTiles = 0
+    unit_destinations: list[Position] = []
+    minable_squares_on_map = 0
+    estimated_mining_spots = []
+    id_book = {}
+    workspace_countdown = minable_squares_on_map
+    units_built = 0
+    cities_built = 1
+    list_tiles_need_city: list[Position] = []
+    available: list[Position] = []  # list of available building tiles on the map
+    wood_on_map = 0
+    available_fuel_on_map = 0
+    threshold_use_other = .4
+    wood_reliance = 80
+    work_list_dictionary = {}
+    cities_built_this_turn: list[Position] = []
+    power_needed = 0
+    power_obtained = 0
+    cities_need_fuel = {} # dictionary of city_id and fuel needed
+    city_adj_build_tiles = []
+    sustainability_constant = 1.25
+    fuel_work_list_dictionary = {}
+
     turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
     turns_until_night = turns_until_new_cycle - night_length
     if turns_until_night < 0:
         turns_until_night = 0
-
-    # clumping
-    mining_spots = []
-
-    # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
-    unit_destinations: list[Position] = []
-    for unit in player.units:
-        unit_destinations.append(unit.pos)
-    for name, city in opponent.cities.items():
-        for cityTiles in city.citytiles:
-            unit_destinations.append(cityTiles.pos)
-
-    friendlyCityTiles: list[Position] = []
-    num_cityTiles = 0
-    for name, city in player.cities.items():
-        for cityTiles in city.citytiles:
-            num_cityTiles +=1
-            friendlyCityTiles.append(cityTiles.pos)
-            if (cityTiles.pos in unit_destinations):
-                unit_destinations.remove(cityTiles.pos)
 
     def in_bounds(pos):
         if pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height:
@@ -148,40 +155,7 @@ def agent(observation, configuration):
                 unit_destinations.append(unit.pos)
             return None
 
-    resourceMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
-    for y in range(height):
-        for x in range(width):
-            cell = game_state.map.get_cell(x, y)
-            if cell.has_resource():
-                if (cell.resource.type == RESOURCE_TYPES.WOOD):
-                    resourceMap[x][y] = 20
-                elif (cell.resource.type == RESOURCE_TYPES.COAL and player.research_points >= 50):
-                    resourceMap[x][y] = 50
-                elif (cell.resource.type == RESOURCE_TYPES.URANIUM and player.research_points >= 200):
-                    resourceMap[x][y] = 80
-            else:
-                resourceMap[x][y] = 0
-
-    fuelCollectionMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
-    for y in range(height):
-        for x in range(width):
-            fuelCollectionMap[x][y] += resourceMap[x][y]
-            if (in_bounds(Position(x - 1, y))):
-                fuelCollectionMap[x][y] += resourceMap[x - 1][y]
-            if (in_bounds(Position(x + 1, y))):
-                fuelCollectionMap[x][y] += resourceMap[x + 1][y]
-            if (in_bounds(Position(x, y - 1))):
-                fuelCollectionMap[x][y] += resourceMap[x][y - 1]
-            if (in_bounds(Position(x, y + 1))):
-                fuelCollectionMap[x][y] += resourceMap[x][y + 1]
-    minable_squares_on_map = 0
-    for y in range(height):
-        for x in range(width):
-            if fuelCollectionMap[x][y] > 0:
-                minable_squares_on_map += 1
-
     #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
-    estimated_mining_spots = []
     def estimated_value_of_worker(prospective_worker):
         t = turns_until_night
         # while t > 0:
@@ -210,8 +184,6 @@ def agent(observation, configuration):
                 value = t * fuelCollectionMap[best_pos.x][best_pos.y]
         return value
 
-    estimated_total_value_of_workers = 0
-
     def closest_worker(pos):
         dictionary_workers = {}
         for worker in player.units:
@@ -232,20 +204,61 @@ def agent(observation, configuration):
                 adjacent_tile_list.remove(square)
         return adjacent_tile_list
 
-    id_book = {}
-    workspace_countdown = minable_squares_on_map
+    def fuel_amount(worker1):
+        return worker1.cargo.wood + (worker1.cargo.coal * fuel_per_unit_coal) + (worker1.cargo.uranium * fuel_per_unit_uranium)
+
+    # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
+    for unit in player.units:
+        unit_destinations.append(unit.pos)
+    for name, city in opponent.cities.items():
+        for cityTiles in city.citytiles:
+            unit_destinations.append(cityTiles.pos)
+
+    for name, city in player.cities.items():
+        for cityTiles in city.citytiles:
+            num_cityTiles += 1
+            friendlyCityTiles.append(cityTiles.pos)
+            if (cityTiles.pos in unit_destinations):
+                unit_destinations.remove(cityTiles.pos)
+
+    resourceMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
+    for y in range(height):
+        for x in range(width):
+            cell = game_state.map.get_cell(x, y)
+            if cell.has_resource():
+                if (cell.resource.type == RESOURCE_TYPES.WOOD):
+                    resourceMap[x][y] = 20
+                elif (cell.resource.type == RESOURCE_TYPES.COAL and player.research_points >= 50):
+                    resourceMap[x][y] = 50
+                elif (cell.resource.type == RESOURCE_TYPES.URANIUM and player.research_points >= 200):
+                    resourceMap[x][y] = 80
+            else:
+                resourceMap[x][y] = 0
+
+    fuelCollectionMap: list[list[int]] = [[0 for c in range(width)] for r in range(height)]
+    for y in range(height):
+        for x in range(width):
+            fuelCollectionMap[x][y] += resourceMap[x][y]
+            if (in_bounds(Position(x - 1, y))):
+                fuelCollectionMap[x][y] += resourceMap[x - 1][y]
+            if (in_bounds(Position(x + 1, y))):
+                fuelCollectionMap[x][y] += resourceMap[x + 1][y]
+            if (in_bounds(Position(x, y - 1))):
+                fuelCollectionMap[x][y] += resourceMap[x][y - 1]
+            if (in_bounds(Position(x, y + 1))):
+                fuelCollectionMap[x][y] += resourceMap[x][y + 1]
+
+    for y in range(height):
+        for x in range(width):
+            if fuelCollectionMap[x][y] > 0:
+                minable_squares_on_map += 1
+
     for unit in player.units:
         id_book[unit.id] = unit
         if workspace_countdown > 0:
             estimated_total_value_of_workers += estimated_value_of_worker(unit)
             workspace_countdown -= 1
-    units_built = 0
-    cities_built = 1
 
-    #list of available building tiles on the map
-    available: list[Position] = []
-    wood_on_map = 0
-    available_fuel_on_map = 0
     for y in range(height):
         for x in range(width):
             cell = game_state.map.get_cell_by_pos(Position(x, y))
@@ -262,13 +275,12 @@ def agent(observation, configuration):
     global wood_on_map_initial
     if game_state.turn == 0:
         wood_on_map_initial = wood_on_map
-    threshold_use_other = .4
-    wood_reliance = 80
+
     if wood_on_map_initial*threshold_use_other >= wood_on_map:
         wood_reliance = 0
+
     #list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
-    list_tiles_need_city: list[Position] = []
     for posn in available:
         adj_tile: list[Position] = adjacent_tiles(posn)
         num_adj_cities = 0
@@ -284,7 +296,6 @@ def agent(observation, configuration):
 
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
-    work_list_dictionary = {}
     if len(list_tiles_need_city) != 0:
         for tiles in list_tiles_need_city:
             worker_list = closest_worker(tiles)
@@ -301,18 +312,7 @@ def agent(observation, configuration):
     #   1. build workers if have space
     #   2. research otherwise
     #could potentially optimize spawn location of workers
-
-    cities_built_this_turn: list[Position] = []
-
     workers_to_build = num_cityTiles - len(player.units)
-    power_needed = 0
-    power_obtained = 0
-    #dictionary of city_id and fuel needed
-    cities_need_fuel = {}
-    city_adj_build_tiles = []
-
-    sustainability_constant = 1.2
-
     for name, city in player.cities.items():
         night_turns_to_go = 10
         if turns_until_new_cycle < 10:
@@ -335,11 +335,6 @@ def agent(observation, configuration):
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
 
-    def fuel_amount(worker1):
-        return worker1.cargo.wood + (worker1.cargo.coal * fuel_per_unit_coal) + (worker1.cargo.uranium * fuel_per_unit_uranium)
-
-
-    fuel_work_list_dictionary = {}
     if len(cities_need_fuel) != 0:
         for tiles, shortage_fuel in cities_need_fuel.items():
             worker_list = closest_worker(Position(tiles[0], tiles[1]))
@@ -381,8 +376,6 @@ def agent(observation, configuration):
                         workerActioned = True
             closest_dist_city = math.inf
             closest_city_tile = None
-            closest_dist_resource = math.inf
-            closest_resource_tile = None
             if len(player.cities) > 0:
                 for k, city in player.cities.items():
                     for city_tile in city.citytiles:
@@ -407,37 +400,8 @@ def agent(observation, configuration):
                     actions.append(action)
                     workerActioned = True
             elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
-                position = unit.pos
-                x_pos = position.x
-                y_pos = position.y
-                adjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                             Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
-                adjacentTiles = list(filter(lambda pos: in_bounds(pos), adjacentTileOptions))
-                mineableAdjacentTileOptions: list[Position] = [Position(x_pos+1,y_pos), Position(x_pos-1, y_pos),
-                                                     Position(x_pos, y_pos+1), Position(x_pos, y_pos-1)] #create list of adjacent tiles
-                mineableAdjacentTiles = list(filter(lambda pos: in_bounds(pos), mineableAdjacentTileOptions))
-
                 if (not workerActioned):
-                    #if turns_until_night > building_constant_a and unit.cargo.wood >= 80 and unit.can_build(game_state.map):
-                        #actions.append(unit.build_city())
-                        #workerActioned = True
-                    # if (turns_until_new_cycle * collection_per_night > necessary_fuel_to_keep_city_alive/building_constant_b and \
-                    #     accessible_fuel > necessary_fuel_to_keep_city_alive/building_constant_c) and unit.cargo.wood >= 80 and unit.can_build(game_state.map): #might be able to further optimize sustainability function to build during night?
-                    #     actions.append(unit.build_city())
-                    #     workerActioned = True
                     if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 20*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and unit.can_build(game_state.map):
-                        # if closest_city_tile is not None:
-                        #     if unit.pos.distance_to(closest_city_tile.pos) == 2:
-                        #         adjacent_tiles_to_unit = adjacent_tiles(unit.pos)
-                        #         possible_movements: list[Position] = []
-                        #         for tile in adjacent_tiles_to_unit:
-                        #             if closest_city_tile.pos.distance_to(tile) == 1 and (tile in available):
-                        #                 possible_movements.append(tile)
-                        #         if len(possible_movements) != 0:
-                        #             action = move(unit, possible_movements[0])
-                        #             if (action != None):
-                        #                 actions.append(action)
-                        #                 workerActioned = True
                         if unit.pos in city_adj_build_tiles and not workerActioned:
                             actions.append(unit.build_city())
                             available.remove(unit.pos)
@@ -467,18 +431,6 @@ def agent(observation, configuration):
                             cities_built += 1
                             workerActioned = True
                     elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and not unit.can_build(game_state.map):
-                        # if closest_city_tile is not None:
-                        #     if unit.pos.distance_to(closest_city_tile.pos) == 2:
-                        #         adjacent_tiles_to_unit = adjacent_tiles(unit.pos)
-                        #         possible_movements: list[Position] = []
-                        #         for tile in adjacent_tiles_to_unit:
-                        #             if closest_city_tile.pos.distance_to(tile) == 1 and (tile in available):
-                        #                 possible_movements.append(tile)
-                        #         if len(possible_movements) != 0:
-                        #             action = move(unit, possible_movements[0])
-                        #             if (action != None):
-                        #                 actions.append(action)
-                        #                 workerActioned = True
                         if closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= 5 and not workerActioned:
                             def closest_tile(posi):
                                 return unit.pos.distance_to(posi)
