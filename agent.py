@@ -60,7 +60,7 @@ def agent(observation, configuration):
     wood_on_map = 0
     available_fuel_on_map = 0
     threshold_use_other = .4
-    wood_reliance = 80
+    wood_reliance = 0
     work_list_dictionary = {}
     cities_built_this_turn: list[Position] = []
     power_needed = 0
@@ -206,6 +206,15 @@ def agent(observation, configuration):
 
     def fuel_amount(worker1):
         return worker1.cargo.wood + (worker1.cargo.coal * fuel_per_unit_coal) + (worker1.cargo.uranium * fuel_per_unit_uranium)
+
+    def can_survive(worker2):
+        nights_to_survive = 10
+        if turns_until_new_cycle < 10:
+            nights_to_survive = turns_until_new_cycle
+        if fuel_amount(worker2) - 4 * nights_to_survive >=0:
+            return True
+        else:
+            return False
 
     # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
     for unit in player.units:
@@ -475,7 +484,7 @@ def agent(observation, configuration):
                 if action is not None:
                     actions.append(action)
                     workerActioned = True
-            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
+            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not can_survive(unit) and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
                 action = move(unit, closest_city_tile.pos)
                 if (action != None):
                     actions.append(action)
@@ -607,7 +616,7 @@ def agent(observation, configuration):
     # actions.append(annotate.circle(0, 0))
     # print(power_needed + 20*cities_built)
     # print(estimated_total_value_of_workers)
-    print(readily_accessible_fuel_on_map)
+    # print(readily_accessible_fuel_on_map)
     return actions
 
 
