@@ -69,6 +69,7 @@ def agent(observation, configuration):
     city_adj_build_tiles = []
     sustainability_constant = 1.25
     fuel_work_list_dictionary = {}
+    readily_accessible_fuel_on_map = 0
 
     turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
     turns_until_night = turns_until_new_cycle - night_length
@@ -252,6 +253,75 @@ def agent(observation, configuration):
             if fuelCollectionMap[x][y] > 0:
                 minable_squares_on_map += 1
 
+    def list_pos_to_tuple(list_pos):
+        list_tuple = []
+        for pos in list_pos:
+            list_tuple.append(tuple([pos.x, pos.y]))
+        return list_tuple
+
+    def list_tuple_to_pos(list_tuple):
+        list_posi = []
+        for tup in list_tuple:
+            list_posi.append(Position(tup[0],tup[1]))
+        return list_posi
+
+    def can_mine(resource_cell):
+        if cell.has_resource():
+            if cell.resource.type == Constants.RESOURCE_TYPES.COAL and player.research_points >= 50:
+                return True
+            elif cell.resource.type == Constants.RESOURCE_TYPES.URANIUM and player.research_points >= 200:
+                return True
+            elif cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def create_clump(neighbor, elist):
+        new_list = elist
+        new_list.append(neighbor)
+        adj_cell = adjacent_tiles(neighbor)
+        adj_cell_copy = adjacent_tiles(neighbor)
+        for neighbor_two in adj_cell_copy:
+            if resourceMap[neighbor_two.x][neighbor_two.y] == 0 or neighbor_two in new_list:
+                adj_cell.remove(neighbor_two)
+        for neighbor_three in adj_cell:
+            new_list + list_tuple_to_pos(set(list_pos_to_tuple(create_clump(neighbor_three, new_list))) - set(list_pos_to_tuple(new_list)))
+        return new_list
+
+    resource_clump_dict = {} #represents clump locations and their corresponding fuel amount.
+    list_resource_clumps = [] #list of list of positions of clumps of resources
+    for y in range(height):
+        for x in range(width):
+            cell = game_state.map.get_cell(x, y)
+            repeated_value = False
+            for clumps in list_resource_clumps:
+                if clumps is not None:
+                    for pos in clumps:
+                        if cell.pos.equals(pos):
+                            repeated_value = True
+            if can_mine(cell) and not repeated_value:
+                list_resource_clumps.append(create_clump(cell.pos, []))
+
+    def value_of_nearest_clump(pos):
+        for resource_clump in list_resource_clumps:
+            search_tiles = adjacent_tiles(pos)
+            search_tiles.append(pos)
+            for position in search_tiles:
+                if position in resource_clump:
+                    clump_val = 0
+                    for posi in resource_clump:
+                        square = game_state.map.get_cell(posi.x, posi.y)
+                        if square.resource.type == Constants.RESOURCE_TYPES.URANIUM:
+                            clump_val += square.resource.amount * fuel_per_unit_uranium
+                        elif square.resource.type == Constants.RESOURCE_TYPES.COAL:
+                            clump_val += square.resource.amount * fuel_per_unit_coal
+                        else:
+                            clump_val += square.resource.amount
+                    return resource_clump, clump_val
+
+
     workspace_countdown = minable_squares_on_map
     for unit in player.units:
         id_book[unit.id] = unit
@@ -293,6 +363,17 @@ def agent(observation, configuration):
 
     if estimated_total_value_of_workers > available_fuel_on_map:
         estimated_total_value_of_workers = available_fuel_on_map
+
+    copy_of_clump_map = list_resource_clumps
+    for unit in player.units:
+        if value_of_nearest_clump(unit.pos) is not None:
+            place, value = value_of_nearest_clump(unit.pos)
+            if place in copy_of_clump_map:
+                readily_accessible_fuel_on_map += value
+                copy_of_clump_map.remove(place)
+
+    if estimated_total_value_of_workers > readily_accessible_fuel_on_map:
+        estimated_total_value_of_workers = readily_accessible_fuel_on_map
 
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
@@ -493,6 +574,7 @@ def agent(observation, configuration):
     # actions.append(annotate.circle(0, 0))
     # print(power_needed + 20*cities_built)
     # print(estimated_total_value_of_workers)
+    print(readily_accessible_fuel_on_map)
     return actions
 
 
