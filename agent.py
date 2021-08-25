@@ -533,12 +533,14 @@ def agent(observation, configuration):
                             actions.append(action)
                             mining_spots.append(optimal_location)
                             workerActioned = True
+                        else:
+                            mining_spots.append(unit.pos)
     # add in preferences for which city builds the worker depending on distance from resource
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    print(power_needed + 20*cities_built)
-    print(estimated_total_value_of_workers)
+    # print(power_needed + 20*cities_built)
+    # print(estimated_total_value_of_workers)
     return actions
 
 
