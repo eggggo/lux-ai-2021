@@ -54,7 +54,7 @@ def agent(observation, configuration):
     estimated_mining_spots = []
     id_book = {}
     units_built = 0
-    cities_built = 1
+    cities_built = 0
     list_tiles_need_city: list[Position] = []
     available: list[Position] = []  # list of available building tiles on the map
     wood_on_map = 0
@@ -401,7 +401,7 @@ def agent(observation, configuration):
                     workerActioned = True
             elif unit.get_cargo_space_left() == 0: #if worker has 100 cargo and assuming it is on a square it wants to build a city on
                 if (not workerActioned):
-                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 20*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and unit.can_build(game_state.map):
+                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 20 + 20*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and unit.can_build(game_state.map):
                         if unit.pos in city_adj_build_tiles and not workerActioned:
                             actions.append(unit.build_city())
                             available.remove(unit.pos)
