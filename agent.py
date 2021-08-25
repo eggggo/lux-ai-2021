@@ -166,23 +166,40 @@ def agent(observation, configuration):
                 fuelCollectionMap[x][y] += resourceMap[x][y - 1]
             if (in_bounds(Position(x, y + 1))):
                 fuelCollectionMap[x][y] += resourceMap[x][y + 1]
+    minable_squares_on_map = 0
+    for y in range(height):
+        for x in range(width):
+            if fuelCollectionMap[x][y] > 0:
+                minable_squares_on_map += 1
 
     #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
+    estimated_mining_spots = []
     def estimated_value_of_worker(prospective_worker):
-        t = turns_until_new_cycle
+        t = turns_until_night
         # while t > 0:
         list_of_resources = findOptimalResource(game_state.map, player.research_points, prospective_worker, turns_until_night, fuelCollectionMap)
         value = 0
         if len(list_of_resources) != 0:
-            pos = list_of_resources[0][0]
-            dist_turns = 2 * prospective_worker.pos.distance_to(pos)
-            t -= dist_turns
-            if t < 0:
-                t = 0
-            value = t * fuelCollectionMap[prospective_worker.pos.x][prospective_worker.pos.y]
-            times_back_to_city = value // 100
-            t -= times_back_to_city*dist_turns
-            value = t * fuelCollectionMap[prospective_worker.pos.x][prospective_worker.pos.y]
+            poss_posns = []
+            poss_optimal_posns = []
+            for pos in list_of_resources:
+                poss_optimal_posns.append(pos[0])
+            for posi in poss_optimal_posns:
+                if posi not in estimated_mining_spots:
+                    poss_posns.append(posi)
+            if len(poss_posns) != 0:
+                best_pos = poss_posns[0]
+                estimated_mining_spots.append(best_pos)
+                dist_turns = 2 * prospective_worker.pos.distance_to(best_pos)
+                t -= dist_turns
+                if t < 0:
+                    t = 0
+                value = t * fuelCollectionMap[best_pos.x][best_pos.y]
+                times_back_to_city = value // 100
+                t -= times_back_to_city*dist_turns
+                if t < 0:
+                    t = 0
+                value = t * fuelCollectionMap[best_pos.x][best_pos.y]
         return value
 
     estimated_total_value_of_workers = 0
@@ -208,9 +225,12 @@ def agent(observation, configuration):
         return adjacent_tile_list
 
     id_book = {}
+    workspace_countdown = minable_squares_on_map
     for unit in player.units:
         id_book[unit.id] = unit
-        estimated_total_value_of_workers += estimated_value_of_worker(unit)
+        if workspace_countdown > 0:
+            estimated_total_value_of_workers += estimated_value_of_worker(unit)
+            workspace_countdown -= 1
     units_built = 0
     cities_built = 1
 
@@ -279,8 +299,18 @@ def agent(observation, configuration):
     workers_to_build = num_cityTiles - len(player.units)
     power_needed = 0
     power_obtained = 0
+    #dictionary of city_id and fuel needed
+    cities_need_fuel = {}
+
     for name, city in player.cities.items():
-        power_needed += city.get_light_upkeep() * 10
+        night_turns_to_go = 10
+        if turns_until_new_cycle < 10:
+            night_turns_to_go = turns_until_new_cycle
+        shortage = city.get_light_upkeep() * night_turns_to_go
+        if city.fuel < shortage and len(city.citytiles) > 1:
+            tuple_loc = (city.citytiles[0].pos.x, city.citytiles[0].pos.y)
+            cities_need_fuel[tuple_loc] = shortage - city.fuel
+        power_needed += shortage
         power_obtained += city.fuel
         for cityTile in city.citytiles:
             if cityTile.can_act():
@@ -289,7 +319,34 @@ def agent(observation, configuration):
                     workers_to_build -= 1
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
-    #clumping measures:
+
+    def fuel_amount(worker1):
+        return worker1.cargo.wood + (worker1.cargo.coal * fuel_per_unit_coal) + (worker1.cargo.uranium * fuel_per_unit_uranium)
+
+
+    fuel_work_list_dictionary = {}
+    if len(cities_need_fuel) != 0:
+        for tiles, shortage_fuel in cities_need_fuel.items():
+            worker_list = closest_worker(Position(tiles[0], tiles[1]))
+            copy_worker_list = closest_worker(Position(tiles[0], tiles[1]))
+            for worker in copy_worker_list:
+                if (not (fuel_amount(id_book[worker]) >= 80)):
+                    worker_list.remove(worker)
+                elif (worker in fuel_work_list_dictionary):
+                    worker_list.remove(worker)
+                elif (id_book[worker].pos.distance_to(Position(tiles[0], tiles[1])) > 7 ):
+                    worker_list.remove(worker)
+
+            fuel_to_make_up = shortage_fuel
+            while fuel_to_make_up > 0 and len(worker_list) != 0:
+                identification = ''
+                if len(worker_list) != 0:
+                    identification = worker_list[0]
+                work_location = Position(tiles[0], tiles[1])
+                if identification != '':
+                    fuel_work_list_dictionary[identification] = work_location
+                    fuel_to_make_up -= fuel_amount(id_book[worker_list[0]])
+                    worker_list.remove(worker_list[0])
 
 
     # we iterate over all our units and do something with them
@@ -324,7 +381,12 @@ def agent(observation, configuration):
             #   2. build city if sustainable and have 100 resource
             #   3. if didn't build city go to nearest city to depo
             #   4. collect resources if >90 cargo space
-            if turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
+            if unit.id in fuel_work_list_dictionary and not workerActioned:
+                action = move(unit, fuel_work_list_dictionary[unit.id])
+                if action is not None:
+                    actions.append(action)
+                    workerActioned = True
+            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
                 action = move(unit, closest_city_tile.pos)
                 if (action != None):
                     actions.append(action)
@@ -430,6 +492,7 @@ def agent(observation, configuration):
                                workerActioned = True
                     else:
                         # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
+
                         if closest_city_tile is not None:
                             action = move(unit, closest_city_tile.pos)
                             if (action != None):
@@ -457,6 +520,8 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
+    print(power_needed + 20*cities_built)
+    print(estimated_total_value_of_workers)
     return actions
 
 
