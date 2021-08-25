@@ -104,14 +104,29 @@ def agent(observation, configuration):
         if (unit.pos.translate(direct, 1) not in unit_destinations):
             return direct
         else:
-            if (unit.pos.translate(rotateRight(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(direct), 1))):
-                return rotateRight(direct)
-            elif (unit.pos.translate(rotateLeft(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateLeft(direct), 1))):
-                return rotateLeft(direct)
-            elif (unit.pos.translate(rotateRight(rotateRight(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(rotateRight(direct)), 1))):
-                return rotateRight(rotateRight(direct))
-            else:
-                return DIRECTIONS.CENTER
+            options = []
+            if (in_bounds((unit.pos.translate(rotateRight(direct), 1)))):
+                distance_from_right = ((unit.pos.translate(rotateRight(direct), 1).distance_to(tgt)), rotateRight(direct))
+                options.append(distance_from_right)
+            if (in_bounds((unit.pos.translate(rotateLeft(direct), 1)))):
+                distance_from_left = ((unit.pos.translate(rotateLeft(direct), 1).distance_to(tgt)), rotateLeft(direct))
+                options.append(distance_from_left)
+            if (in_bounds((unit.pos.translate(rotateRight(rotateRight(direct)), 1)))):
+                distance_from_back = ((unit.pos.translate(rotateRight(rotateRight(direct)), 1).distance_to(tgt)), rotateRight(rotateRight(direct)))
+                options.append(distance_from_back)
+            sorted_options = list(sorted(options, key= lambda kv: kv[0]))
+            for op in sorted_options:
+                if unit.pos.translate(op[1], 1) not in unit_destinations:
+                    return op[1]
+            return DIRECTIONS.CENTER
+            # if (unit.pos.translate(rotateRight(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(direct), 1))):
+            #     return rotateRight(direct)
+            # elif (unit.pos.translate(rotateLeft(direct), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateLeft(direct), 1))):
+            #     return rotateLeft(direct)
+            # elif (unit.pos.translate(rotateRight(rotateRight(direct)), 1) not in unit_destinations and in_bounds(unit.pos.translate(rotateRight(rotateRight(direct)), 1))):
+            #     return rotateRight(rotateRight(direct))
+            # else:
+            #     return DIRECTIONS.CENTER
 
     def move(unit, tgt):
         if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
