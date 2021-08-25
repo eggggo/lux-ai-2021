@@ -53,7 +53,6 @@ def agent(observation, configuration):
     minable_squares_on_map = 0
     estimated_mining_spots = []
     id_book = {}
-    workspace_countdown = minable_squares_on_map
     units_built = 0
     cities_built = 1
     list_tiles_need_city: list[Position] = []
@@ -253,6 +252,7 @@ def agent(observation, configuration):
             if fuelCollectionMap[x][y] > 0:
                 minable_squares_on_map += 1
 
+    workspace_countdown = minable_squares_on_map
     for unit in player.units:
         id_book[unit.id] = unit
         if workspace_countdown > 0:
