@@ -562,22 +562,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100:
-                    if closest_city_tile is not None and unit.pos.distance_to(
-                            closest_city_tile.pos) <= 5 and not workerActioned:
-                        def closest_tile(posi):
-                            return unit.pos.distance_to(posi)
-
-                        city_adj_build_tiles.sort(key=closest_tile)
-                        if len(city_adj_build_tiles) != 0:
-                            unit_destinations.extend(friendlyCityTiles)
-                            action = move(unit, city_adj_build_tiles[0])
-                            for destination in friendlyCityTiles:
-                                if destination in unit_destinations:
-                                    unit_destinations.remove(destination)
-                            if (action != None):
-                                actions.append(action)
-                                workerActioned = True
-                    elif not workerActioned:
+                    if not workerActioned:
                         estimated_total_value_of_workers += estimated_value_of_worker(unit)  # delete?
                         best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit,
                                                                     turns_until_night, fuelCollectionMap)
