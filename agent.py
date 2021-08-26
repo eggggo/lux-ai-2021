@@ -111,52 +111,36 @@ def agent(observation, configuration):
 
     def closestFreeDirection(unit, tgt):
         direct = unit.pos.direction_to(tgt)
-        if (unit.pos.translate(direct, 1) not in unit_destinations):
-            return direct
-        else:
-            options = []
-            if (in_bounds((unit.pos.translate(rotateRight(direct), 1)))):
-                distance_from_right = ((unit.pos.translate(rotateRight(direct), 1).distance_to(tgt)), rotateRight(direct))
-                options.append(distance_from_right)
-            if (in_bounds((unit.pos.translate(rotateLeft(direct), 1)))):
-                distance_from_left = ((unit.pos.translate(rotateLeft(direct), 1).distance_to(tgt)), rotateLeft(direct))
-                options.append(distance_from_left)
-            # if (in_bounds((unit.pos.translate(rotateRight(rotateRight(direct)), 1)))):
-            #     distance_from_back = ((unit.pos.translate(rotateRight(rotateRight(direct)), 1).distance_to(tgt)), rotateRight(rotateRight(direct)))
-            #     options.append(distance_from_back)
-            sorted_options = list(sorted(options, key= lambda kv: kv[0]))
-            for op in sorted_options:
-                if unit.pos.translate(op[1], 1) not in unit_destinations:
-                    return op[1]
-            return DIRECTIONS.CENTER
+        options = []
+        if (in_bounds((unit.pos.translate(direct, 1)))):
+            distance_from_direct = ((unit.pos.translate(direct, 1)).translate(direct, 1).distance_to(tgt), direct)
+            options.append(distance_from_direct)
+        if (in_bounds((unit.pos.translate(rotateRight(direct), 1)))):
+            distance_from_right = ((unit.pos.translate(rotateRight(direct), 1).distance_to(tgt)), rotateRight(direct))
+            options.append(distance_from_right)
+        if (in_bounds((unit.pos.translate(rotateLeft(direct), 1)))):
+            distance_from_left = ((unit.pos.translate(rotateLeft(direct), 1).distance_to(tgt)), rotateLeft(direct))
+            options.append(distance_from_left)
+        sorted_options = list(sorted(options, key= lambda kv: kv[0]))
+        for op in sorted_options:
+            if unit.pos.translate(op[1], 1) not in unit_destinations and (unit.id not in previous_unit_spots or not previous_unit_spots[unit.id].equals(unit.pos.translate(op[1], 1))):
+                return op[1]
+        return DIRECTIONS.CENTER
 
     global previous_unit_spots
     global unit_targets
     def move(unit, tgt):
-        if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
-            if unit.id not in previous_unit_spots or not previous_unit_spots[unit.id].equals(unit.pos.translate(unit.pos.direction_to(tgt), 1)):
-                if (unit.pos not in friendlyCityTiles):
-                    unit_destinations.remove(unit.pos)
-                action = unit.move(unit.pos.direction_to(tgt))
-                previous_unit_spots[unit.id] = unit.pos
-                if unit.id in unit_targets and not tgt.equals(unit_targets[unit.id]):
-                    previous_unit_spots.pop(unit.id)
-                unit_targets[unit.id] = tgt
-                if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in friendlyCityTiles):
-                    unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
-                return action
-        elif (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
-            if unit.id not in previous_unit_spots or not previous_unit_spots[unit.id].equals(unit.pos.translate(closestFreeDirection(unit, tgt), 1)):
-                if (unit.pos not in friendlyCityTiles):
-                    unit_destinations.remove(unit.pos)
-                action = unit.move(closestFreeDirection(unit, tgt))
-                previous_unit_spots[unit.id] = unit.pos
-                if unit.id in unit_targets and not tgt.equals(unit_targets[unit.id]):
-                    previous_unit_spots.pop(unit.id)
-                unit_targets[unit.id] = tgt
-                if (unit.pos.translate(closestFreeDirection(unit, tgt), 1) not in friendlyCityTiles):
-                    unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
-                return action
+        if (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
+            previous_unit_spots[unit.id] = unit.pos
+            if unit.id in unit_targets and not tgt.equals(unit_targets[unit.id]):
+                previous_unit_spots.pop(unit.id)
+            unit_targets[unit.id] = tgt
+            if (unit.pos not in friendlyCityTiles):
+                unit_destinations.remove(unit.pos)
+            action = unit.move(closestFreeDirection(unit, tgt))
+            if (unit.pos.translate(closestFreeDirection(unit, tgt), 1) not in friendlyCityTiles):
+                unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
+            return action
         else:
             if (unit.pos not in friendlyCityTiles):
                 previous_unit_spots[unit.id] = unit.pos
@@ -651,10 +635,10 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    print(game_state.turn)
-    print(power_needed)
-    print(estimated_total_value_of_workers)
-    print(readily_accessible_fuel_on_map)
+    # print(game_state.turn)
+    # print(power_needed)
+    # print(estimated_total_value_of_workers)
+    # print(readily_accessible_fuel_on_map)
     return actions
 
 
