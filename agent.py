@@ -22,7 +22,6 @@ less_fuel_needed_per_night_constant = 5
 current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
 worker_cooldown = 2
 night_length = 10
-wood_on_map_initial = 0
 mining_spots = []
 previous_unit_spots = {}
 unit_targets = {}
@@ -63,7 +62,6 @@ def agent(observation, configuration):
     wood_on_map = 0
     available_fuel_on_map = 0
     threshold_use_other = .4
-    wood_reliance = 0
     work_list_dictionary = {}
     cities_built_this_turn: list[Position] = []
     power_needed = 0
@@ -323,9 +321,17 @@ def agent(observation, configuration):
             if can_mine(cell) and not repeated_value:
                 list_resource_clumps.append(create_clump(cell.pos, []))
 
+    def get_square_around(pos, size):
+        square = []
+        half = size//2
+        for i in range(max(0, pos.x-half), min(pos.x+half, width)):
+            for j in range(max(0, pos.y-half), min(pos.y+half, height)):
+                square.append(Position(i, j))
+        return square
+
     def value_of_nearest_clump(pos):
         for resource_clump in list_resource_clumps:
-            search_tiles = adjacent_tiles(pos)
+            search_tiles = get_square_around(pos, 5)
             search_tiles.append(pos)
             for position in search_tiles:
                 if position in resource_clump:
@@ -348,6 +354,7 @@ def agent(observation, configuration):
             estimated_total_value_of_workers += estimated_value_of_worker(unit)
             workspace_countdown -= 1
 
+    units_of_resource_on_map = 0
     for y in range(height):
         for x in range(width):
             cell = game_state.map.get_cell_by_pos(Position(x, y))
@@ -357,16 +364,19 @@ def agent(observation, configuration):
                 if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
                     wood_on_map += cell.resource.amount
                     available_fuel_on_map += cell.resource.amount
+                    units_of_resource_on_map += cell.resource.amount
                 elif cell.resource.type == Constants.RESOURCE_TYPES.COAL and player.research_points >= 50:
                     available_fuel_on_map += cell.resource.amount*fuel_per_unit_coal
+                    units_of_resource_on_map += cell.resource.amount
                 elif cell.resource.type == Constants.RESOURCE_TYPES.URANIUM and player.research_points >= 200:
                     available_fuel_on_map += cell.resource.amount * fuel_per_unit_uranium
-    global wood_on_map_initial
-    if game_state.turn == 0:
-        wood_on_map_initial = wood_on_map
+                    units_of_resource_on_map += cell.resource.amount
 
-    if wood_on_map_initial*threshold_use_other >= wood_on_map:
-        wood_reliance = 0
+    # if units_of_resource_on_map == 0:
+    #     wood_reliance = 0
+    # else:
+    #     wood_reliance = 100 * wood_on_map/units_of_resource_on_map
+    wood_reliance = 0
 
     #list of tiles with adjacent tiles of more than 1 city
     # maybe could sort this to most efficient work orders to be completed first
@@ -578,7 +588,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100:
+                if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.uranium != 100:
                     if not workerActioned:
                         estimated_total_value_of_workers += estimated_value_of_worker(unit)  # delete?
                         best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit,
