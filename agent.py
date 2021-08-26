@@ -25,6 +25,7 @@ night_length = 10
 wood_on_map_initial = 0
 mining_spots = []
 previous_unit_spots = {}
+unit_targets = {}
 build_near_city = 4
 
 def agent(observation, configuration):
@@ -129,6 +130,8 @@ def agent(observation, configuration):
                     return op[1]
             return DIRECTIONS.CENTER
 
+    global previous_unit_spots
+    global unit_targets
     def move(unit, tgt):
         if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
             if unit.id not in previous_unit_spots or not previous_unit_spots[unit.id].equals(unit.pos.translate(unit.pos.direction_to(tgt), 1)):
@@ -136,6 +139,9 @@ def agent(observation, configuration):
                     unit_destinations.remove(unit.pos)
                 action = unit.move(unit.pos.direction_to(tgt))
                 previous_unit_spots[unit.id] = unit.pos
+                if unit.id in unit_targets and not tgt.equals(unit_targets[unit.id]):
+                    previous_unit_spots.pop(unit.id)
+                unit_targets[unit.id] = tgt
                 if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in friendlyCityTiles):
                     unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
                 return action
@@ -145,6 +151,9 @@ def agent(observation, configuration):
                     unit_destinations.remove(unit.pos)
                 action = unit.move(closestFreeDirection(unit, tgt))
                 previous_unit_spots[unit.id] = unit.pos
+                if unit.id in unit_targets and not tgt.equals(unit_targets[unit.id]):
+                    previous_unit_spots.pop(unit.id)
+                unit_targets[unit.id] = tgt
                 if (unit.pos.translate(closestFreeDirection(unit, tgt), 1) not in friendlyCityTiles):
                     unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
                 return action
