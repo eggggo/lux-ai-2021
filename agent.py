@@ -24,6 +24,7 @@ worker_cooldown = 2
 night_length = 10
 wood_on_map_initial = 0
 mining_spots = []
+build_near_city = 4
 
 def agent(observation, configuration):
     global game_state
@@ -494,7 +495,7 @@ def agent(observation, configuration):
                             cities_built += 1
                             workerActioned = True
                         # if theres another city close by, just go attach onto that city to save resource
-                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= 5 and not workerActioned:
+                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
                             def closest_tile(posi):
                                 return unit.pos.distance_to(posi)
                             city_adj_build_tiles.sort(key=closest_tile)
@@ -518,7 +519,7 @@ def agent(observation, configuration):
                     #if the unit cannot build in this particular spot but is still at full cargo
                     elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and not unit.can_build(game_state.map):
                         # go to the closest adjacent city tile if it is close
-                        if closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= 5 and not workerActioned:
+                        if closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
                             def closest_tile(posi):
                                 return unit.pos.distance_to(posi)
                             city_adj_build_tiles.sort(key=closest_tile)
@@ -554,7 +555,7 @@ def agent(observation, configuration):
                             if (action != None):
                                 actions.append(action)
                                 workerActioned = True
-
+            # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
             # if unit has space left
             elif unit.get_cargo_space_left() > 0 and not workerActioned:
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
@@ -577,7 +578,26 @@ def agent(observation, configuration):
                             if (action != None):
                                 actions.append(action)
                                 workerActioned = True
-                # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it but better
+                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100:
+                    gathering_locs: list[Position] = []
+                    for pgp in possibleGatheringPositions:
+                        gathering_locs.append(pgp[0])
+                    for spot in mining_spots:
+                        if spot in gathering_locs:
+                            gathering_locs.remove(spot)
+                    if len(gathering_locs) != 0:
+                        optimal_location = gathering_locs[0]
+                        unit_destinations.extend(friendlyCityTiles)
+                        action = move(unit, optimal_location)
+                        for destination in friendlyCityTiles:
+                            if destination in unit_destinations:
+                                unit_destinations.remove(destination)
+                        if action != None:
+                            actions.append(action)
+                            mining_spots.append(optimal_location)
+                            workerActioned = True
+                        else:
+                            mining_spots.append(unit.pos)
                 elif not workerActioned and (len(possibleGatheringPositions) > 0):
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
@@ -598,9 +618,10 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    # print(power_needed + 20*cities_built)
-    # print(estimated_total_value_of_workers)
-    # print(readily_accessible_fuel_on_map)
+    print(game_state.turn)
+    print(power_needed)
+    print(estimated_total_value_of_workers)
+    print(readily_accessible_fuel_on_map)
     return actions
 
 
