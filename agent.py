@@ -26,6 +26,7 @@ mining_spots = []
 previous_unit_spots = {}
 unit_targets = {}
 build_near_city = 4
+seen_clumps = []
 
 def agent(observation, configuration):
     global game_state
@@ -224,6 +225,25 @@ def agent(observation, configuration):
         else:
             return False
 
+    def can_reach(worker3, loc):
+        cooldown_time = 2
+        turns_can_survive = fuel_amount(worker3)/4 #4 is fuel consumed per night
+        if turns_can_survive >= 10:
+            turns_can_survive = 10
+        turn_deadline = turns_until_night + turns_can_survive
+        if turn_deadline >= cooldown_time * worker3.pos.distance_to(loc):
+            return True
+        else:
+            return False
+
+    def can_reach_len(worker3):
+        cooldown_time = 2
+        turns_can_survive = fuel_amount(worker3)//4 #4 is fuel consumed per night
+        if turns_can_survive >= 10:
+            turns_can_survive = 10
+        turn_len = (turns_until_night + turns_can_survive)//cooldown_time
+        return turn_len
+
     # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
     for unit in player.units:
         unit_destinations.append(unit.pos)
@@ -314,10 +334,9 @@ def agent(observation, configuration):
             cell = game_state.map.get_cell(x, y)
             repeated_value = False
             for clumps in list_resource_clumps:
-                if clumps is not None:
-                    for pos in clumps:
-                        if cell.pos.equals(pos):
-                            repeated_value = True
+                for pos in clumps:
+                    if cell.pos.equals(pos):
+                        repeated_value = True
             if can_mine(cell) and not repeated_value:
                 list_resource_clumps.append(create_clump(cell.pos, []))
 
@@ -393,16 +412,94 @@ def agent(observation, configuration):
     if estimated_total_value_of_workers > available_fuel_on_map:
         estimated_total_value_of_workers = available_fuel_on_map
 
-    copy_of_clump_map = list_resource_clumps
+    unseen_clumps = list_resource_clumps.copy()
+    global seen_clumps
     for unit in player.units:
         if value_of_nearest_clump(unit.pos) is not None:
             place, value = value_of_nearest_clump(unit.pos)
-            if place in copy_of_clump_map:
+            if place in unseen_clumps:
                 readily_accessible_fuel_on_map += value
-                copy_of_clump_map.remove(place)
+                unseen_clumps.remove(place)
+                if place not in seen_clumps:
+                    seen_clumps.append(place)
 
     if estimated_total_value_of_workers > readily_accessible_fuel_on_map:
         estimated_total_value_of_workers = readily_accessible_fuel_on_map
+
+    def fuel_stored_in_resource(cell1):
+        value = 0
+        if cell.has_resource():
+            if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
+                value += cell.resource.amount
+            elif cell.resource.type == Constants.RESOURCE_TYPES.COAL:
+                value += cell.resource.amount * fuel_per_unit_coal
+            elif cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
+                value += cell.resource.amount * fuel_per_unit_uranium
+        return value
+
+    def value_of_clump(clump_of_fuel):
+        total_fuel = 0
+        for square in clump_of_fuel:
+            cell = game_state.map.get_cell_by_pos(square)
+            total_fuel += fuel_stored_in_resource(cell)
+        return total_fuel
+
+    val_of_seen_clumps = []
+    for clump in seen_clumps:
+        val_of_seen_clumps.append(value_of_clump(clump))
+
+    worth_unseen_clumps = []
+    for clump in unseen_clumps:
+        if value_of_clump(clump) > max(val_of_seen_clumps):
+            worth_unseen_clumps.append(clump)
+
+    def value_of_nearest_clump_only_unseen_and_worth(unit1):
+        for resource_clump in worth_unseen_clumps:
+            search_tiles = get_square_around(unit1.pos, can_reach_len(unit1))
+            search_tiles.append(unit1.pos)
+            for position in search_tiles:
+                if position in resource_clump:
+                    clump_val = 0
+                    for posi in resource_clump:
+                        square = game_state.map.get_cell(posi.x, posi.y)
+                        if square.resource.type == Constants.RESOURCE_TYPES.URANIUM:
+                            clump_val += square.resource.amount * fuel_per_unit_uranium
+                        elif square.resource.type == Constants.RESOURCE_TYPES.COAL:
+                            clump_val += square.resource.amount * fuel_per_unit_coal
+                        else:
+                            clump_val += square.resource.amount
+                    return resource_clump, clump_val
+
+    def closest_pos_to_worker(posi, clump1):
+        closest_posn = None
+        closest_dist = math.inf
+        for location in clump1:
+            if posi.distance_to(location) < closest_dist:
+                closest_posn = location
+                closest_dist = posi.distance_to(location)
+        return closest_posn
+
+    next_optimal_clump = None
+    next_optimal_clump_distance = math.inf
+
+    for unit in player.units:
+        if value_of_nearest_clump_only_unseen_and_worth(unit) is not None:
+            nearest_clump, val = value_of_nearest_clump_only_unseen_and_worth(unit)
+            dist = unit.pos.distance_to((closest_pos_to_worker(unit.pos, nearest_clump)))
+            if dist < next_optimal_clump_distance:
+                next_optimal_clump = nearest_clump
+                next_optimal_clump_distance = dist
+
+    if game_state.turn < 10:
+        print(len(worth_unseen_clumps))
+        print(len(seen_clumps))
+        print(len(unseen_clumps))
+        print(next_optimal_clump_distance)
+        print(next_optimal_clump)
+    for unit in player.units:
+        if game_state.turn < 10:
+            print(can_reach_len(unit))
+            print(value_of_nearest_clump_only_unseen_and_worth(unit))
 
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
@@ -497,7 +594,7 @@ def agent(observation, configuration):
                             closest_city_tile = city_tile
             turns_from_home = closest_dist_city * worker_cooldown
             # if the worker is a target for the sos system, go help the city who needs it
-            if unit.id in fuel_work_list_dictionary and not workerActioned:
+            if unit.id in fuel_work_list_dictionary and not workerActioned and estimated_total_value_of_workers >= power_needed:
                 action = move(unit, fuel_work_list_dictionary[unit.id])
                 if action is not None:
                     actions.append(action)
