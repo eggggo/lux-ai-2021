@@ -24,6 +24,7 @@ worker_cooldown = 2
 night_length = 10
 wood_on_map_initial = 0
 mining_spots = []
+previous_unit_spots = {}
 
 def agent(observation, configuration):
     global game_state
@@ -118,9 +119,9 @@ def agent(observation, configuration):
             if (in_bounds((unit.pos.translate(rotateLeft(direct), 1)))):
                 distance_from_left = ((unit.pos.translate(rotateLeft(direct), 1).distance_to(tgt)), rotateLeft(direct))
                 options.append(distance_from_left)
-            if (in_bounds((unit.pos.translate(rotateRight(rotateRight(direct)), 1)))):
-                distance_from_back = ((unit.pos.translate(rotateRight(rotateRight(direct)), 1).distance_to(tgt)), rotateRight(rotateRight(direct)))
-                options.append(distance_from_back)
+            # if (in_bounds((unit.pos.translate(rotateRight(rotateRight(direct)), 1)))):
+            #     distance_from_back = ((unit.pos.translate(rotateRight(rotateRight(direct)), 1).distance_to(tgt)), rotateRight(rotateRight(direct)))
+            #     options.append(distance_from_back)
             sorted_options = list(sorted(options, key= lambda kv: kv[0]))
             for op in sorted_options:
                 if unit.pos.translate(op[1], 1) not in unit_destinations:
@@ -129,23 +130,46 @@ def agent(observation, configuration):
 
     def move(unit, tgt):
         if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in unit_destinations):
-            if (unit.pos not in friendlyCityTiles):
-                unit_destinations.remove(unit.pos)
-            action = unit.move(unit.pos.direction_to(tgt))
-            if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in friendlyCityTiles):
-                unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
-            return action
+            if unit.id not in previous_unit_spots or not previous_unit_spots[unit.id].equals(unit.pos.translate(unit.pos.direction_to(tgt), 1)):
+                if (unit.pos not in friendlyCityTiles):
+                    unit_destinations.remove(unit.pos)
+                action = unit.move(unit.pos.direction_to(tgt))
+                previous_unit_spots[unit.id] = unit.pos
+                if (unit.pos.translate(unit.pos.direction_to(tgt), 1) not in friendlyCityTiles):
+                    unit_destinations.append(unit.pos.translate(unit.pos.direction_to(tgt), 1))
+                return action
         elif (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
-            if (unit.pos not in friendlyCityTiles):
-                unit_destinations.remove(unit.pos)
-            action = unit.move(closestFreeDirection(unit, tgt))
-            if (unit.pos.translate(closestFreeDirection(unit, tgt), 1) not in friendlyCityTiles):
-                unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
-            return action
+            if unit.id not in previous_unit_spots or not previous_unit_spots[unit.id].equals(unit.pos.translate(closestFreeDirection(unit, tgt), 1)):
+                if (unit.pos not in friendlyCityTiles):
+                    unit_destinations.remove(unit.pos)
+                action = unit.move(closestFreeDirection(unit, tgt))
+                previous_unit_spots[unit.id] = unit.pos
+                if (unit.pos.translate(closestFreeDirection(unit, tgt), 1) not in friendlyCityTiles):
+                    unit_destinations.append(unit.pos.translate(closestFreeDirection(unit, tgt), 1))
+                return action
         else:
             if (unit.pos not in friendlyCityTiles):
+                previous_unit_spots[unit.id] = unit.pos
                 unit_destinations.append(unit.pos)
             return None
+
+    def actual_distance_to(unit, tgt):
+        distance = 0
+        current = unit.pos
+        closest_dist = current.distance_to(tgt)
+        stall_turns = 0
+        while (not current.equals(tgt)):
+            move_dir = closestFreeDirection(current, tgt)
+            current = current.translate(move_dir, 1)
+            if (current.distance_to(tgt) < closest_dist):
+                closest_dist = current.distance_to(tgt)
+                stall_turns = 0
+            else:
+                stall_turns += 1
+            distance += 1
+            if stall_turns > 5 or move_dir == DIRECTIONS.CENTER:
+                return 999
+        return distance
 
     #given a worker's position returns the estimated fuel the worker would collect by the end of the day/night cycle
     def estimated_value_of_worker(prospective_worker):
