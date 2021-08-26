@@ -605,7 +605,7 @@ def agent(observation, configuration):
                             if (action != None):
                                 actions.append(action)
                                 workerActioned = True
-                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100:
+                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.uranium != 100:
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
                         gathering_locs.append(pgp[0])
