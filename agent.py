@@ -510,11 +510,11 @@ def agent(observation, configuration):
     #         print(can_reach_len(unit))
     #         print(value_of_nearest_clump_only_unseen_and_worth(unit))
 
+    global worker_split_go
     if game_state.turn % 2 == 0:
         worker_split = 0
         if next_optimal_clump is not None:
             worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
-        global worker_split_go
         if (len(player.units)*worker_split)//1 >=1:
             worker_split_go = (len(player.units)*worker_split)//1
     #Id of worker and position of building a city
@@ -578,7 +578,7 @@ def agent(observation, configuration):
                     worker_list.remove(worker)
                 elif (worker in fuel_work_list_dictionary):
                     worker_list.remove(worker)
-                elif (id_book[worker].pos.distance_to(Position(tiles[0], tiles[1])) > 7 ):
+                elif id_book[worker].pos.distance_to(Position(tiles[0], tiles[1])) > 7: #and fuel_amount(id_book[worker]) < 101: # try changing to 7, also try making it so that bois with more than 100 (ie no coal or uranium) respond to sos far aways
                     worker_list.remove(worker)
 
             fuel_to_make_up = shortage_fuel
@@ -659,12 +659,17 @@ def agent(observation, configuration):
                         # if theres another city close by, just go attach onto that city to save resource!
                         elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
                             worker_debug_role = 'go to adj city tile for build'
-                            def closest_tile(posi):
-                                return unit.pos.distance_to(posi)
-                            city_adj_build_tiles.sort(key=closest_tile)
-                            if len(city_adj_build_tiles) != 0:
+                            # def closest_tile(posi):
+                            #     return unit.pos.distance_to(posi)
+                            # city_adj_build_tiles.sort(key=closest_tile)
+                            resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
+                            options = []
+                            for option in resource_map:
+                                if option[0] in city_adj_build_tiles:
+                                        options.append(option[0])
+                            if len(options) != 0:
                                 unit_destinations.extend(friendlyCityTiles)
-                                action = move(unit, city_adj_build_tiles[0])
+                                action = move(unit, options[0])
                                 for destination in friendlyCityTiles:
                                     if destination in unit_destinations:
                                         unit_destinations.remove(destination)
@@ -683,12 +688,17 @@ def agent(observation, configuration):
                         # otherwise, go to the nearest resource adj tile!
                         elif not workerActioned:
                             worker_debug_role = 'go to adj resource tile for build'
-                            def closest_tile(posi):
-                                return unit.pos.distance_to(posi)
-                            available_tiles_distances = available_build_tiles.copy()
-                            available_tiles_distances.sort(key=closest_tile)
-                            if len(available_tiles_distances) != 0:
-                                tgt = available_tiles_distances[0]
+                            # def closest_tile(posi):
+                            #     return unit.pos.distance_to(posi)
+                            # available_tiles_distances = available_build_tiles.copy()
+                            # available_tiles_distances.sort(key=closest_tile)
+                            resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
+                            options = []
+                            for option in resource_map:
+                                if option[0] in available_build_tiles:
+                                    options.append(option[0])
+                            if len(options) != 0:
+                                tgt = options[0]
                                 action = move(unit, tgt)
                                 if (action != None):
                                     actions.append(action)

@@ -23,6 +23,7 @@ def findOptimalResource(map, researchPoints, unit, turns_before_night, fuelColle
 
     def valueFunction(fuelAmount, turns_to_reach_resource):
         return fuelAmount*(turns_before_night - z - turns_to_reach_resource) - 40*turns_to_reach_resource
+
     # def find_closest_resource(pos):
     #     max_dist = math.inf
     #     closest_position = Position(0, 0)
@@ -40,7 +41,7 @@ def findOptimalResource(map, researchPoints, unit, turns_before_night, fuelColle
                 turns_to_destination = 2*unit.pos.distance_to(Position(x, y))
                 # closest_resource_position = find_closest_resource(Position(x, y))
                 # collection_rate_closest_resource = fuelCollectionMap[closest_resource_position.x][closest_resource_position.y]
-                # turns_to_closest_resource = 2*(abs(closest_resource_position.x-x) + abs(closest_resource_position.y-y))
+                # turns_to_closest_resource = 2*unit.pos.distance_to(closest_resource_position)
                 # value = valueFunction(fuelCollectionMap[x][y], turns_to_destination, collection_rate_closest_resource, turns_to_closest_resource)
                 value = valueFunction(fuelCollectionMap[x][y], turns_to_destination)
                 valueList.append((Position(x, y), value))
