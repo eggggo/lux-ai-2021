@@ -617,7 +617,7 @@ def agent(observation, configuration):
                             closest_city_tile = city_tile
             turns_from_home = closest_dist_city * worker_cooldown
             # if the worker is a target for the sos system, go help the city who needs it
-            if unit.id in fuel_work_list_dictionary and not workerActioned and estimated_total_value_of_workers >= power_needed:
+            if unit.id in fuel_work_list_dictionary and not workerActioned and estimated_total_value_of_workers + power_obtained >= power_needed:
                 action = move(unit, fuel_work_list_dictionary[unit.id])
                 if action is not None:
                     actions.append(action)
