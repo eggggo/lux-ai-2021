@@ -428,13 +428,13 @@ def agent(observation, configuration):
 
     def fuel_stored_in_resource(cell1):
         value = 0
-        if cell.has_resource():
-            if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
-                value += cell.resource.amount
-            elif cell.resource.type == Constants.RESOURCE_TYPES.COAL:
-                value += cell.resource.amount * fuel_per_unit_coal
-            elif cell.resource.type == Constants.RESOURCE_TYPES.URANIUM:
-                value += cell.resource.amount * fuel_per_unit_uranium
+        if cell1.has_resource():
+            if cell1.resource.type == Constants.RESOURCE_TYPES.WOOD:
+                value += cell1.resource.amount
+            elif cell1.resource.type == Constants.RESOURCE_TYPES.COAL and player.research_points >=50:
+                value += cell1.resource.amount * fuel_per_unit_coal
+            elif cell1.resource.type == Constants.RESOURCE_TYPES.URANIUM and player.research_points >=200:
+                value += cell1.resource.amount * fuel_per_unit_uranium
         return value
 
     def value_of_clump(clump_of_fuel):
@@ -447,6 +447,10 @@ def agent(observation, configuration):
     val_of_seen_clumps = []
     for clump in seen_clumps:
         val_of_seen_clumps.append(value_of_clump(clump))
+
+    val_of_unseen_clumps = []
+    for clumps in unseen_clumps:
+        val_of_unseen_clumps.append(value_of_clump(clumps))
 
     worth_unseen_clumps = []
     for clump in unseen_clumps:
@@ -490,16 +494,29 @@ def agent(observation, configuration):
                 next_optimal_clump = nearest_clump
                 next_optimal_clump_distance = dist
 
-    if game_state.turn < 10:
-        print(len(worth_unseen_clumps))
-        print(len(seen_clumps))
-        print(len(unseen_clumps))
-        print(next_optimal_clump_distance)
-        print(next_optimal_clump)
-    for unit in player.units:
-        if game_state.turn < 10:
-            print(can_reach_len(unit))
-            print(value_of_nearest_clump_only_unseen_and_worth(unit))
+    # if game_state.turn < 10:
+    #     print(len(worth_unseen_clumps))
+    #     print(len(seen_clumps))
+    #     print(len(unseen_clumps))
+    #     print(next_optimal_clump_distance)
+    #     print(next_optimal_clump)
+    #     print(value_of_clump(next_optimal_clump))
+    #     for clump in val_of_unseen_clumps:
+    #         print(clump)
+    #     for clump in val_of_seen_clumps:
+    #         print(clump)
+    # for unit in player.units:
+    #     if game_state.turn < 10:
+    #         print(can_reach_len(unit))
+    #         print(value_of_nearest_clump_only_unseen_and_worth(unit))
+
+    worker_split = 0
+    if next_optimal_clump is not None:
+        worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
+    worker_split_go = 0
+    if (len(player.units)*worker_split)//1 >=1:
+        worker_split_go = (len(player.units)*worker_split)//1
+    print(worker_split_go)
 
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
@@ -598,6 +615,12 @@ def agent(observation, configuration):
                 action = move(unit, fuel_work_list_dictionary[unit.id])
                 if action is not None:
                     actions.append(action)
+                    workerActioned = True
+            elif next_optimal_clump is not None and worker_split_go > 0 and can_reach(unit, closest_pos_to_worker(unit.pos, next_optimal_clump)):
+                action = move(unit, closest_pos_to_worker(unit.pos, next_optimal_clump))
+                if action != None:
+                    actions.append(action)
+                    worker_split_go -= 1
                     workerActioned = True
             # if night is approaching and you close and can't survive alone, go home
             elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not can_survive(unit) and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
