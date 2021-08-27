@@ -72,6 +72,7 @@ def agent(observation, configuration):
     sustainability_constant = 1.25
     fuel_work_list_dictionary = {}
     readily_accessible_fuel_on_map = 0
+    available_build_tiles = []
 
     turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
     turns_until_night = turns_until_new_cycle - night_length
@@ -516,7 +517,6 @@ def agent(observation, configuration):
     worker_split_go = 0
     if (len(player.units)*worker_split)//1 >=1:
         worker_split_go = (len(player.units)*worker_split)//1
-    print(worker_split_go)
 
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
@@ -559,6 +559,16 @@ def agent(observation, configuration):
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
 
+    available_build_tiles.extend(city_adj_build_tiles)
+    for y in range(height):
+        for x in range(width):
+            cell = game_state.map.get_cell(x, y)
+            if cell.has_resource():
+                adj_tiles_to_resource = adjacent_tiles(cell.pos)
+                for square in adj_tiles_to_resource:
+                    if square in available:
+                        available_build_tiles.append(square)
+
     #sos system for cities to call back units that have fuel to help it survive the night
     if len(cities_need_fuel) != 0:
         for tiles, shortage_fuel in cities_need_fuel.items():
@@ -590,7 +600,7 @@ def agent(observation, configuration):
             workerActioned = False
             # if there is a work order for the unit to build somewhere, go there and build
             if unit.id in work_list_dictionary and not workerActioned:
-                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build(game_state.map):
+                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build(game_state.map) and unit.pos in available_build_tiles:
                     actions.append(unit.build_city())
                     available.remove(unit.pos)
                     cities_built_this_turn.append(unit.pos)
@@ -634,7 +644,7 @@ def agent(observation, configuration):
                     #if you can build on the current tile
                     if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and unit.can_build(game_state.map):
                         #if this current tile is already next to a city, just build it
-                        if unit.pos in city_adj_build_tiles and not workerActioned:
+                        if unit.pos in city_adj_build_tiles and unit.pos in available_build_tiles and not workerActioned:
                             actions.append(unit.build_city())
                             available.remove(unit.pos)
                             cities_built_this_turn.append(unit.pos)
@@ -656,7 +666,7 @@ def agent(observation, configuration):
                                     actions.append(action)
                                     workerActioned = True
                         # otherwise if no city close by just build city by itself
-                        elif not workerActioned:
+                        elif unit.pos in available_build_tiles and not workerActioned:
                             actions.append(unit.build_city())
                             available.remove(unit.pos)
                             cities_built_this_turn.append(unit.pos)
