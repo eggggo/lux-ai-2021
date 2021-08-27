@@ -647,7 +647,7 @@ def agent(observation, configuration):
             elif unit.get_cargo_space_left() == 0:
                 if (not workerActioned):
                     #if society wants you to build
-                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance:
+                    if (estimated_total_value_of_workers + power_obtained >= power_needed) and unit.cargo.wood >= wood_reliance:
                         #if this current tile is already next to a city, just build it!
                         if unit.pos in city_adj_build_tiles and unit.pos in available_build_tiles and not workerActioned:
                             worker_debug_role = 'build city on adj city tile'
@@ -724,7 +724,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 200 + 200*cities_built):
+                if not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + power_obtained >= power_needed):
                     worker_debug_role = 'not full cargo should build moves to non city tiles in prep of build'
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
