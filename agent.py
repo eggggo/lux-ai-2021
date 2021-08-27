@@ -692,12 +692,8 @@ def agent(observation, configuration):
                             optimal_location: list[Position] = []
                             for loc in best_mining_locations:
                                 optimal_location.append(loc[0])
-                            perfect_place: list[Position] = []
-                            for loc in optimal_location:
-                                if (loc in available) and (loc not in unit_destinations):
-                                    perfect_place.append(loc)
-                            if len(perfect_place) != 0:
-                                action = move(unit, perfect_place[0])
+                            if len(optimal_location) != 0:
+                                action = move(unit, optimal_location[0])
                                 if (action != None):
                                    actions.append(action)
                                    workerActioned = True
@@ -717,17 +713,11 @@ def agent(observation, configuration):
                 if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built):
                     if not workerActioned:
                         estimated_total_value_of_workers += estimated_value_of_worker(unit)  # delete?
-                        best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit,
-                                                                    turns_until_night, fuelCollectionMap)
                         optimal_location: list[Position] = []
-                        for loc in best_mining_locations:
+                        for loc in possibleGatheringPositions:
                             optimal_location.append(loc[0])
-                        perfect_place: list[Position] = []
-                        for loc in optimal_location:
-                            if (loc in available) and (loc not in unit_destinations):
-                                perfect_place.append(loc)
-                        if len(perfect_place) != 0:
-                            action = move(unit, perfect_place[0])
+                        if len(optimal_location) != 0:
+                            action = move(unit, optimal_location[0])
                             if (action != None):
                                 actions.append(action)
                                 workerActioned = True
