@@ -642,7 +642,7 @@ def agent(observation, configuration):
             elif unit.get_cargo_space_left() == 0:
                 if (not workerActioned):
                     #if you can build on the current tile
-                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and unit.can_build(game_state.map):
+                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.can_build(game_state.map):
                         #if this current tile is already next to a city, just build it
                         if unit.pos in city_adj_build_tiles and unit.pos in available_build_tiles and not workerActioned:
                             actions.append(unit.build_city())
@@ -674,7 +674,7 @@ def agent(observation, configuration):
                             cities_built += 1
                             workerActioned = True
                     #if the unit cannot build in this particular spot but is still at full cargo
-                    elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and not unit.can_build(game_state.map):
+                    elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and not unit.can_build(game_state.map):
                         # go to the closest adjacent city tile if it is close
                         if closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
                             def closest_tile(posi):
@@ -718,7 +718,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.uranium != 100:
+                if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built):
                     if not workerActioned:
                         estimated_total_value_of_workers += estimated_value_of_worker(unit)  # delete?
                         best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit,
@@ -735,7 +735,7 @@ def agent(observation, configuration):
                             if (action != None):
                                 actions.append(action)
                                 workerActioned = True
-                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.uranium != 100:
+                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built):
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
                         gathering_locs.append(pgp[0])
