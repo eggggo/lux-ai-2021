@@ -27,6 +27,7 @@ previous_unit_spots = {}
 unit_targets = {}
 build_near_city = 4
 seen_clumps = []
+worker_split_go = 0
 
 def agent(observation, configuration):
     global game_state
@@ -460,7 +461,7 @@ def agent(observation, configuration):
 
     def value_of_nearest_clump_only_unseen_and_worth(unit1):
         for resource_clump in worth_unseen_clumps:
-            search_tiles = get_square_around(unit1.pos, can_reach_len(unit1))
+            search_tiles = get_square_around(unit1.pos, 2 * can_reach_len(unit1))
             search_tiles.append(unit1.pos)
             for position in search_tiles:
                 if position in resource_clump:
@@ -479,7 +480,7 @@ def agent(observation, configuration):
         closest_posn = None
         closest_dist = math.inf
         for location in clump1:
-            if posi.distance_to(location) < closest_dist:
+            if posi.distance_to(location) < closest_dist and location not in unit_destinations:
                 closest_posn = location
                 closest_dist = posi.distance_to(location)
         return closest_posn
@@ -495,29 +496,24 @@ def agent(observation, configuration):
                 next_optimal_clump = nearest_clump
                 next_optimal_clump_distance = dist
 
-    # if game_state.turn < 10:
+    # if game_state.turn < 50:
     #     print(len(worth_unseen_clumps))
     #     print(len(seen_clumps))
     #     print(len(unseen_clumps))
     #     print(next_optimal_clump_distance)
     #     print(next_optimal_clump)
-    #     print(value_of_clump(next_optimal_clump))
-    #     for clump in val_of_unseen_clumps:
-    #         print(clump)
-    #     for clump in val_of_seen_clumps:
-    #         print(clump)
     # for unit in player.units:
-    #     if game_state.turn < 10:
+    #     if game_state.turn < 50:
     #         print(can_reach_len(unit))
     #         print(value_of_nearest_clump_only_unseen_and_worth(unit))
 
-    worker_split = 0
-    if next_optimal_clump is not None:
-        worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
-    worker_split_go = 0
-    if (len(player.units)*worker_split)//1 >=1:
-        worker_split_go = (len(player.units)*worker_split)//1
-
+    if game_state.turn % 2 == 0:
+        worker_split = 0
+        if next_optimal_clump is not None:
+            worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
+        global worker_split_go
+        if (len(player.units)*worker_split)//1 >=1:
+            worker_split_go = (len(player.units)*worker_split)//1
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     if len(list_tiles_need_city) != 0:
@@ -626,7 +622,7 @@ def agent(observation, configuration):
                 if action is not None:
                     actions.append(action)
                     workerActioned = True
-            elif next_optimal_clump is not None and worker_split_go > 0 and can_reach(unit, closest_pos_to_worker(unit.pos, next_optimal_clump)):
+            elif next_optimal_clump is not None and worker_split_go > 0 and not workerActioned:
                 action = move(unit, closest_pos_to_worker(unit.pos, next_optimal_clump))
                 if action != None:
                     actions.append(action)
