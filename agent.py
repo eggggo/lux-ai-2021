@@ -687,7 +687,6 @@ def agent(observation, configuration):
                                     workerActioned = True
                         # otherwise find the closest free resource spot to go to
                         elif not workerActioned:
-                            estimated_total_value_of_workers += estimated_value_of_worker(unit) # delete?
                             best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
                             optimal_location: list[Position] = []
                             for loc in best_mining_locations:
@@ -710,18 +709,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built):
-                    if not workerActioned:
-                        estimated_total_value_of_workers += estimated_value_of_worker(unit)  # delete?
-                        optimal_location: list[Position] = []
-                        for loc in possibleGatheringPositions:
-                            optimal_location.append(loc[0])
-                        if len(optimal_location) != 0:
-                            action = move(unit, optimal_location[0])
-                            if (action != None):
-                                actions.append(action)
-                                workerActioned = True
-                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built):
+                if not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built):
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
                         gathering_locs.append(pgp[0])
