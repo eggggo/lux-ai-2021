@@ -134,8 +134,6 @@ def agent(observation, configuration):
     global previous_unit_spots
     global unit_targets
     def move(unit, tgt):
-        if game_state.turn <20:
-            print(tgt)
         if (closestFreeDirection(unit, tgt) != DIRECTIONS.CENTER):
             previous_unit_spots[unit.id] = unit.pos
             if unit.id in unit_targets and not tgt.equals(unit_targets[unit.id]):
@@ -647,7 +645,7 @@ def agent(observation, configuration):
             elif unit.get_cargo_space_left() == 0:
                 if (not workerActioned):
                     #if society wants you to build
-                    if (estimated_total_value_of_workers + power_obtained >= power_needed) and unit.cargo.wood >= wood_reliance:
+                    if (estimated_total_value_of_workers + power_obtained >= sustainability_constant*power_needed) and unit.cargo.wood >= wood_reliance:
                         #if this current tile is already next to a city, just build it!
                         if unit.pos in city_adj_build_tiles and unit.pos in available_build_tiles and not workerActioned:
                             worker_debug_role = 'build city on adj city tile'
@@ -665,8 +663,6 @@ def agent(observation, configuration):
                             for option in resource_map:
                                 if option[0] in city_adj_build_tiles:
                                         options.append(option[0])
-                            if game_state.turn < 20:
-                                print(options)
                             if len(options) == 0:
                                 def closest_tile(posi):
                                     return unit.pos.distance_to(posi)
@@ -724,7 +720,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + power_obtained >= power_needed):
+                if not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + power_obtained >= sustainability_constant*power_needed):
                     worker_debug_role = 'not full cargo should build moves to non city tiles in prep of build'
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
