@@ -731,7 +731,7 @@ def agent(observation, configuration):
                             cities_built += 1
                             workerActioned = True
                         # if theres another city close by, just go attach onto that city to save resource!
-                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and len(city_adj_build_tiles) != 0and not workerActioned:
+                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and len(city_adj_build_tiles) != 0 and not workerActioned:
                             worker_debug_role = 'go to adj city tile for build'
                             resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
                             options = []
