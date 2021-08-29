@@ -508,10 +508,12 @@ def agent(observation, configuration):
     for unit in player.units:
         if value_of_nearest_clump_only_unseen_and_worth(unit) is not None:
             nearest_clump, val = value_of_nearest_clump_only_unseen_and_worth(unit)
-            dist = unit.pos.distance_to((closest_pos_to_worker(unit.pos, nearest_clump)))
-            if dist < next_optimal_clump_distance:
-                next_optimal_clump = nearest_clump
-                next_optimal_clump_distance = dist
+            if (closest_pos_to_worker(unit.pos, nearest_clump)) is not None:
+                closest_pos_worker = (closest_pos_to_worker(unit.pos, nearest_clump))
+                dist = unit.pos.distance_to(closest_pos_worker)
+                if dist < next_optimal_clump_distance:
+                    next_optimal_clump = nearest_clump
+                    next_optimal_clump_distance = dist
 
     # if game_state.turn < 50:
     #     print(len(worth_unseen_clumps))
@@ -665,7 +667,7 @@ def agent(observation, configuration):
                 if unit.pos.distance_to(place) < 7:
                     feasible_targets.append(place)
 
-            if next_optimal_clump is not None and worker_split_go > 0 and can_reach(unit, closest_pos_to_worker(unit.pos, next_optimal_clump)) and not workerActioned:
+            if next_optimal_clump is not None and worker_split_go > 0 and closest_pos_to_worker(unit.pos, next_optimal_clump) is not None and can_reach(unit, closest_pos_to_worker(unit.pos, next_optimal_clump)) and not workerActioned:
                 worker_debug_role = 'next optimal clump move'
                 action = move(unit, closest_pos_to_worker(unit.pos, next_optimal_clump))
                 if action != None:
