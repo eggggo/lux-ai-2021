@@ -535,6 +535,8 @@ def agent(observation, configuration):
             worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
         if (len(player.units)*worker_split)//1 >=1:
             worker_split_go = (len(player.units)*worker_split)//1
+    if game_state.turn < 150:
+        print(worker_split_go)
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     if len(list_tiles_need_city) != 0:
@@ -661,7 +663,6 @@ def agent(observation, configuration):
                             closest_dist_city = dist
                             closest_city_tile = city_tile
             turns_from_home = closest_dist_city * worker_cooldown
-
             feasible_targets = []
             for place in high_priority_blocking_targets:
                 if unit.pos.distance_to(place) < 7:
@@ -709,7 +710,7 @@ def agent(observation, configuration):
                     workerActioned = True
 
             # if night is approaching and you close and can't survive alone, go home
-            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not can_survive(unit) and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
+            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 5 and not can_survive(unit) and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
                 worker_debug_role = 'go home, its almost nighttime move'
                 action = move(unit, closest_city_tile.pos)
                 if (action != None):
@@ -730,7 +731,7 @@ def agent(observation, configuration):
                             cities_built += 1
                             workerActioned = True
                         # if theres another city close by, just go attach onto that city to save resource!
-                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
+                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and len(city_adj_build_tiles) != 0and not workerActioned:
                             worker_debug_role = 'go to adj city tile for build'
                             resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
                             options = []
@@ -794,7 +795,7 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if not closest_city_tile is not None and workerActioned and unit.pos.distance_to(closest_city_tile.pos) < 5 and len(possibleGatheringPositions) > 0 and (estimated_total_value_of_workers + power_obtained >= sustainability_constant*power_needed) and turns_until_night > 1:
+                if closest_city_tile is not None and not workerActioned and unit.pos.distance_to(closest_city_tile.pos) < 5 and len(possibleGatheringPositions) > 0 and (estimated_total_value_of_workers + power_obtained >= sustainability_constant*power_needed) and turns_until_night > 1:
                     worker_debug_role = 'not full cargo should build moves to non city tiles in prep of build'
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
