@@ -535,8 +535,6 @@ def agent(observation, configuration):
             worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
         if (len(player.units)*worker_split)//1 >=1:
             worker_split_go = (len(player.units)*worker_split)//1
-    if game_state.turn < 150:
-        print(worker_split_go)
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     if len(list_tiles_need_city) != 0:
@@ -736,7 +734,7 @@ def agent(observation, configuration):
                             resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
                             options = []
                             for option in resource_map:
-                                if option[0] in city_adj_build_tiles:
+                                if option[0] in city_adj_build_tiles and unit.pos.distance_to(option[0]) <= build_near_city:
                                         options.append(option[0])
                             if len(options) == 0:
                                 def closest_tile(posi):
@@ -836,6 +834,7 @@ def agent(observation, configuration):
                             mining_spots.append(unit.pos)
             if (debug and game_state.turn < 150):
                 print("turn: " + str(game_state.turn) + " unit: " + str(unit.id) + " role: " + worker_debug_role)
+                print(worker_split_go)
     # add in preferences for which city builds the worker depending on distance from resource
 
     # you can add debug annotations using the functions in the annotate object
