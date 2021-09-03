@@ -4,3 +4,4 @@ replay.json
 *.suo
 *.sqlite
 *.tar.gz
+*.json
