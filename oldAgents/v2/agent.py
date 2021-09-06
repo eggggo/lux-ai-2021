@@ -7,9 +7,6 @@ from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 from fuel import findOptimalResource
 
-import numpy as np
-
-
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 cost_uranium = 200 #research points needed for uranium
@@ -22,20 +19,13 @@ units_collected_per_turn_coal = 5
 units_collected_per_turn_uranium = 2
 full_day_night_cycle_length = 40
 less_fuel_needed_per_night_constant = 5
-
-# if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
-current_default_fuel_needed_to_survive_a_full_night = 300 
+current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
 worker_cooldown = 2
 night_length = 10
 mining_spots = []
 previous_unit_spots = {}
 unit_targets = {}
 build_near_city = 4
-seen_clumps = []
-worker_split_go = 0
-debug = True
-worker_debug_role = ' '
-attackers = 0
 
 def agent(observation, configuration):
     global game_state
@@ -81,9 +71,6 @@ def agent(observation, configuration):
     sustainability_constant = 1.25
     fuel_work_list_dictionary = {}
     readily_accessible_fuel_on_map = 0
-    available_build_tiles = []
-    enemy_player = game_state.players[(game_state.id + 1) % 2]
-    global worker_debug_role
 
     turns_until_new_cycle = full_day_night_cycle_length - (game_state.turn % full_day_night_cycle_length)
     turns_until_night = turns_until_new_cycle - night_length
@@ -237,25 +224,6 @@ def agent(observation, configuration):
         else:
             return False
 
-    def can_reach(worker3, loc):
-        cooldown_time = 2
-        turns_can_survive = fuel_amount(worker3)/4 #4 is fuel consumed per night
-        if turns_can_survive >= 10:
-            turns_can_survive = 10
-        turn_deadline = turns_until_night + turns_can_survive
-        if turn_deadline >= cooldown_time * worker3.pos.distance_to(loc):
-            return True
-        else:
-            return False
-
-    def can_reach_len(worker3):
-        cooldown_time = 2
-        turns_can_survive = fuel_amount(worker3)//4 #4 is fuel consumed per night
-        if turns_can_survive >= 10:
-            turns_can_survive = 10
-        turn_len = (turns_until_night + turns_can_survive)//cooldown_time
-        return turn_len
-
     # add enemy citytiles to the unitLocations list to avoid collisions, added at start of turn, removed at end to make sure no carry over
     for unit in player.units:
         unit_destinations.append(unit.pos)
@@ -346,9 +314,10 @@ def agent(observation, configuration):
             cell = game_state.map.get_cell(x, y)
             repeated_value = False
             for clumps in list_resource_clumps:
-                for pos in clumps:
-                    if cell.pos.equals(pos):
-                        repeated_value = True
+                if clumps is not None:
+                    for pos in clumps:
+                        if cell.pos.equals(pos):
+                            repeated_value = True
             if can_mine(cell) and not repeated_value:
                 list_resource_clumps.append(create_clump(cell.pos, []))
 
@@ -424,122 +393,17 @@ def agent(observation, configuration):
     if estimated_total_value_of_workers > available_fuel_on_map:
         estimated_total_value_of_workers = available_fuel_on_map
 
-    unseen_clumps = list_resource_clumps.copy()
-    global seen_clumps
+    copy_of_clump_map = list_resource_clumps
     for unit in player.units:
         if value_of_nearest_clump(unit.pos) is not None:
             place, value = value_of_nearest_clump(unit.pos)
-            if place in unseen_clumps:
+            if place in copy_of_clump_map:
                 readily_accessible_fuel_on_map += value
-                unseen_clumps.remove(place)
-                if place not in seen_clumps:
-                    seen_clumps.append(place)
+                copy_of_clump_map.remove(place)
 
     if estimated_total_value_of_workers > readily_accessible_fuel_on_map:
         estimated_total_value_of_workers = readily_accessible_fuel_on_map
 
-    def fuel_stored_in_resource(cell1):
-        value = 0
-        if cell1.has_resource():
-            if cell1.resource.type == Constants.RESOURCE_TYPES.WOOD:
-                value += cell1.resource.amount
-            elif cell1.resource.type == Constants.RESOURCE_TYPES.COAL and player.research_points >=50:
-                value += cell1.resource.amount * fuel_per_unit_coal
-            elif cell1.resource.type == Constants.RESOURCE_TYPES.URANIUM and player.research_points >=200:
-                value += cell1.resource.amount * fuel_per_unit_uranium
-        return value
-
-    def fuel_stored_in_resource_posn(posn):
-        value = 0
-        cell1 = game_state.map.get_cell_by_pos(posn)
-        if cell1.has_resource():
-            if cell1.resource.type == Constants.RESOURCE_TYPES.WOOD:
-                value += cell1.resource.amount
-            elif cell1.resource.type == Constants.RESOURCE_TYPES.COAL and player.research_points >=50:
-                value += cell1.resource.amount * fuel_per_unit_coal
-            elif cell1.resource.type == Constants.RESOURCE_TYPES.URANIUM and player.research_points >=200:
-                value += cell1.resource.amount * fuel_per_unit_uranium
-        return value
-
-    def value_of_clump(clump_of_fuel):
-        total_fuel = 0
-        for square in clump_of_fuel:
-            cell = game_state.map.get_cell_by_pos(square)
-            total_fuel += fuel_stored_in_resource(cell)
-        return total_fuel
-
-    val_of_seen_clumps = []
-    for clump in seen_clumps:
-        val_of_seen_clumps.append(value_of_clump(clump))
-
-    val_of_unseen_clumps = []
-    for clumps in unseen_clumps:
-        val_of_unseen_clumps.append(value_of_clump(clumps))
-
-    worth_unseen_clumps = []
-    for clump in unseen_clumps:
-        if value_of_clump(clump) > max(val_of_seen_clumps):
-            worth_unseen_clumps.append(clump)
-
-    def value_of_nearest_clump_only_unseen_and_worth(unit1):
-        for resource_clump in worth_unseen_clumps:
-            search_tiles = get_square_around(unit1.pos, 2 * can_reach_len(unit1))
-            search_tiles.append(unit1.pos)
-            for position in search_tiles:
-                if position in resource_clump:
-                    clump_val = 0
-                    for posi in resource_clump:
-                        square = game_state.map.get_cell(posi.x, posi.y)
-                        if square.resource.type == Constants.RESOURCE_TYPES.URANIUM:
-                            clump_val += square.resource.amount * fuel_per_unit_uranium
-                        elif square.resource.type == Constants.RESOURCE_TYPES.COAL:
-                            clump_val += square.resource.amount * fuel_per_unit_coal
-                        else:
-                            clump_val += square.resource.amount
-                    return resource_clump, clump_val
-
-    def closest_pos_to_worker(posi, clump1):
-        closest_posn = None
-        closest_dist = math.inf
-        for location in clump1:
-            if posi.distance_to(location) < closest_dist and location not in unit_destinations:
-                closest_posn = location
-                closest_dist = posi.distance_to(location)
-        return closest_posn
-
-    next_optimal_clump = None
-    next_optimal_clump_distance = math.inf
-
-    for unit in player.units:
-        if value_of_nearest_clump_only_unseen_and_worth(unit) is not None:
-            nearest_clump, val = value_of_nearest_clump_only_unseen_and_worth(unit)
-            if (closest_pos_to_worker(unit.pos, nearest_clump)) is not None:
-                closest_pos_worker = (closest_pos_to_worker(unit.pos, nearest_clump))
-                dist = unit.pos.distance_to(closest_pos_worker)
-                if dist < next_optimal_clump_distance:
-                    next_optimal_clump = nearest_clump
-                    next_optimal_clump_distance = dist
-
-    # if game_state.turn < 50:
-    #     print(len(worth_unseen_clumps))
-    #     print(len(seen_clumps))
-    #     print(len(unseen_clumps))
-    #     print(next_optimal_clump_distance)
-    #     print(next_optimal_clump)
-    # for unit in player.units:
-    #     if game_state.turn < 50:
-    #         print(can_reach_len(unit))
-    #         print(value_of_nearest_clump_only_unseen_and_worth(unit))
-
-    global worker_split_go
-    global attackers
-    if game_state.turn % 2 == 0:
-        worker_split = 0
-        attackers = len(player.units)//2
-        if next_optimal_clump is not None:
-            worker_split = value_of_clump(next_optimal_clump)/(sum(val_of_seen_clumps)+value_of_clump(next_optimal_clump))
-        if (len(player.units)*worker_split)//1 >=1:
-            worker_split_go = (len(player.units)*worker_split)//1
     #Id of worker and position of building a city
     # use is to implement a system where when iterating through all units for their actions, can identify a unit that has a work order by its id and send it to the corresponding pos to build a city
     if len(list_tiles_need_city) != 0:
@@ -554,7 +418,6 @@ def agent(observation, configuration):
             work_location = tiles
             if identification != '':
                 work_list_dictionary[identification] = work_location
-
     # current city action flow:
     #   1. build workers if have space
     #   2. research otherwise
@@ -581,39 +444,7 @@ def agent(observation, configuration):
                     workers_to_build -= 1
                 elif player.research_points < cost_uranium:
                     actions.append(cityTile.research())
-    available_build_tiles.extend(city_adj_build_tiles)
-    resource_build_tiles = []
-    for y in range(height):
-        for x in range(width):
-            cell = game_state.map.get_cell(x, y)
-            if cell.has_resource():
-                adj_tiles_to_resource = adjacent_tiles(cell.pos)
-                for square in adj_tiles_to_resource:
-                    if square in available:
-                        available_build_tiles.append(square)
-                        resource_build_tiles.append(square)
 
-    list_enemy_cityTile_pos = []
-    high_priority_blocking_targets = []
-    for name, city in enemy_player.cities.items():
-        for cityTiles in city.citytiles:
-            list_enemy_cityTile_pos.append(cityTiles.pos)
-            search_tiles = get_square_around(cityTiles.pos, 5)
-            for tile in search_tiles:
-                if tile in resource_build_tiles:
-                    high_priority_blocking_targets.append(tile)
-
-    def fuelCollectionMapFunc(posn):
-        return fuelCollectionMap[posn.x][posn.y]
-    high_priority_blocking_targets.sort(key=fuelCollectionMapFunc)
-
-    def enemy_city_nearby(pos):
-        enemy_city = False
-        for name, city in enemy_player.cities.items():
-            for cityTiles in city.citytiles:
-                if pos.distance_to(cityTiles.pos) < 5:
-                    enemy_city = True
-        return enemy_city
     #sos system for cities to call back units that have fuel to help it survive the night
     if len(cities_need_fuel) != 0:
         for tiles, shortage_fuel in cities_need_fuel.items():
@@ -624,7 +455,7 @@ def agent(observation, configuration):
                     worker_list.remove(worker)
                 elif (worker in fuel_work_list_dictionary):
                     worker_list.remove(worker)
-                elif id_book[worker].pos.distance_to(Position(tiles[0], tiles[1])) > 5: #and fuel_amount(id_book[worker]) < 101: # try changing to 7, also try making it so that bois with more than 100 (ie no coal or uranium) respond to sos far aways
+                elif (id_book[worker].pos.distance_to(Position(tiles[0], tiles[1])) > 7 ):
                     worker_list.remove(worker)
 
             fuel_to_make_up = shortage_fuel
@@ -638,20 +469,19 @@ def agent(observation, configuration):
                     fuel_to_make_up -= fuel_amount(id_book[worker_list[0]])
                     worker_list.remove(worker_list[0])
 
+
     # we iterate over all our units and do something with them
     for unit in player.units:
         if unit.is_worker() and unit.can_act():
             workerActioned = False
             # if there is a work order for the unit to build somewhere, go there and build
             if unit.id in work_list_dictionary and not workerActioned:
-                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build(game_state.map) and turns_until_night > 1 and unit.pos in available_build_tiles:
-                    worker_debug_role = 'work listed city built!'
+                if unit.pos.equals(work_list_dictionary[unit.id]) and unit.can_build(game_state.map):
                     actions.append(unit.build_city())
                     available.remove(unit.pos)
                     cities_built_this_turn.append(unit.pos)
                     workerActioned = True
                 else:
-                    worker_debug_role = 'move to work list target'
                     action = move(unit, work_list_dictionary[unit.id])
                     if action is not None:
                         actions.append(action)
@@ -666,55 +496,14 @@ def agent(observation, configuration):
                             closest_dist_city = dist
                             closest_city_tile = city_tile
             turns_from_home = closest_dist_city * worker_cooldown
-            feasible_targets = []
-            for place in high_priority_blocking_targets:
-                if unit.pos.distance_to(place) < 7:
-                    feasible_targets.append(place)
-
-            if next_optimal_clump is not None and worker_split_go > 0 and closest_pos_to_worker(unit.pos, next_optimal_clump) is not None and can_reach(unit, closest_pos_to_worker(unit.pos, next_optimal_clump)) and not workerActioned:
-                worker_debug_role = 'next optimal clump move'
-                action = move(unit, closest_pos_to_worker(unit.pos, next_optimal_clump))
-                if action != None:
-                    actions.append(action)
-                    worker_split_go -= 1
-                    workerActioned = True
-            elif enemy_city_nearby(unit.pos) and len(feasible_targets) != 0 and unit.can_act and attackers > 0 and next_optimal_clump is not None and not workerActioned:
-                if unit.get_cargo_space_left() == 0:
-                    if unit.pos in high_priority_blocking_targets and unit.can_build(game_state.map) and turns_until_night > 1:
-                        worker_debug_role = 'build city at enemy base'
-                        actions.append(unit.build_city())
-                        available.remove(unit.pos)
-                        cities_built_this_turn.append(unit.pos)
-                        units_built += 1
-                        cities_built += 1
-                        workerActioned = True
-                        attackers -= 1
-                    else:
-                        worker_debug_role = 'enough to build, so move to block enemy base'
-                        action = move(unit, feasible_targets[0])
-                        if action is not None:
-                            actions.append(action)
-                            workerActioned = True
-                            attackers -= 1
-                else:
-                    worker_debug_role = 'not enough to build but move to mine and block enemy base'
-                    action = move(unit, feasible_targets[0])
-                    if action is not None:
-                        actions.append(action)
-                        workerActioned = True
-                        attackers -= 1
-
             # if the worker is a target for the sos system, go help the city who needs it
-            elif unit.id in fuel_work_list_dictionary and not workerActioned and estimated_total_value_of_workers + power_obtained >= power_needed:
-                worker_debug_role = 'sos worklist move'
+            if unit.id in fuel_work_list_dictionary and not workerActioned:
                 action = move(unit, fuel_work_list_dictionary[unit.id])
                 if action is not None:
                     actions.append(action)
                     workerActioned = True
-
             # if night is approaching and you close and can't survive alone, go home
-            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 5 and not can_survive(unit) and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
-                worker_debug_role = 'go home, its almost nighttime move'
+            elif turns_from_home >= turns_until_night and closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) < 7 and not can_survive(unit) and not workerActioned: #if the turns itll take for you to get home is greater than the turns till night, head home
                 action = move(unit, closest_city_tile.pos)
                 if (action != None):
                     actions.append(action)
@@ -722,72 +511,73 @@ def agent(observation, configuration):
             # OTHERWISE if you have reached full capacity collecitng
             elif unit.get_cargo_space_left() == 0:
                 if (not workerActioned):
-                    #if society wants you to build
-                    if (estimated_total_value_of_workers + power_obtained >= sustainability_constant*power_needed) and unit.cargo.wood >= wood_reliance and turns_until_night > 1:
-                        #if this current tile is already next to a city, just build it!
-                        if unit.pos in city_adj_build_tiles and unit.pos in available_build_tiles and turns_until_night > 1 and not workerActioned:
-                            worker_debug_role = 'build city on adj city tile'
+                    #if you can build on the current tile
+                    if (estimated_total_value_of_workers + estimated_value_of_worker(unit) + power_obtained >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and unit.can_build(game_state.map):
+                        #if this current tile is already next to a city, just build it
+                        if unit.pos in city_adj_build_tiles and not workerActioned:
                             actions.append(unit.build_city())
                             available.remove(unit.pos)
                             cities_built_this_turn.append(unit.pos)
                             units_built += 1
                             cities_built += 1
                             workerActioned = True
-                        # if theres another city close by, just go attach onto that city to save resource!
-                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and len(city_adj_build_tiles) != 0 and not workerActioned:
-                            worker_debug_role = 'go to adj city tile for build'
-                            resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
-                            options = []
-                            for option in resource_map:
-                                if option[0] in city_adj_build_tiles and unit.pos.distance_to(option[0]) <= build_near_city:
-                                        options.append(option[0])
-                            if len(options) == 0:
-                                def closest_tile(posi):
-                                    return unit.pos.distance_to(posi)
-                                city_adj_build_tiles.sort(key=closest_tile)
-                                options.extend(city_adj_build_tiles)
-                            if len(options) != 0:
+                        # if theres another city close by, just go attach onto that city to save resource
+                        elif closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
+                            def closest_tile(posi):
+                                return unit.pos.distance_to(posi)
+                            city_adj_build_tiles.sort(key=closest_tile)
+                            if len(city_adj_build_tiles) != 0:
                                 unit_destinations.extend(friendlyCityTiles)
-                                action = move(unit, options[0])
+                                action = move(unit, city_adj_build_tiles[0])
                                 for destination in friendlyCityTiles:
                                     if destination in unit_destinations:
                                         unit_destinations.remove(destination)
                                 if action != None:
                                     actions.append(action)
                                     workerActioned = True
-                        # otherwise if no city nearby but by a resource, build!
-                        elif unit.pos in available_build_tiles and not workerActioned and turns_until_night > 1:
-                            worker_debug_role = 'build city on adj resource tile'
+                        # otherwise if no city close by just build city by itself
+                        elif not workerActioned:
                             actions.append(unit.build_city())
                             available.remove(unit.pos)
                             cities_built_this_turn.append(unit.pos)
                             units_built += 1
                             cities_built += 1
                             workerActioned = True
-                        # otherwise, go to the nearest resource adj tile!
-                        elif not workerActioned:
-                            worker_debug_role = 'go to adj resource tile for build'
-                            resource_map = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
-                            options = []
-                            for option in resource_map:
-                                if option[0] in available_build_tiles:
-                                    options.append(option[0])
-                            if len(options) ==0:
-                                def closest_tile(posi):
-                                    return unit.pos.distance_to(posi)
-                                available_tiles_distances = available_build_tiles.copy()
-                                available_tiles_distances.sort(key=closest_tile)
-                                options.extend(available_tiles_distances)
-                            if len(options) != 0:
-                                tgt = options[0]
-                                action = move(unit, tgt)
+                    #if the unit cannot build in this particular spot but is still at full cargo
+                    elif (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.wood >= wood_reliance and unit.cargo.uranium != 100 and not unit.can_build(game_state.map):
+                        # go to the closest adjacent city tile if it is close
+                        if closest_city_tile is not None and unit.pos.distance_to(closest_city_tile.pos) <= build_near_city and not workerActioned:
+                            def closest_tile(posi):
+                                return unit.pos.distance_to(posi)
+                            city_adj_build_tiles.sort(key=closest_tile)
+                            if len(city_adj_build_tiles) != 0:
+                                unit_destinations.extend(friendlyCityTiles)
+                                action = move(unit, city_adj_build_tiles[0])
+                                for destination in friendlyCityTiles:
+                                    if destination in unit_destinations:
+                                        unit_destinations.remove(destination)
                                 if (action != None):
                                     actions.append(action)
                                     workerActioned = True
+                        # otherwise find the closest free resource spot to go to
+                        elif not workerActioned:
+                            estimated_total_value_of_workers += estimated_value_of_worker(unit) # delete?
+                            best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit, turns_until_night, fuelCollectionMap)
+                            optimal_location: list[Position] = []
+                            for loc in best_mining_locations:
+                                optimal_location.append(loc[0])
+                            perfect_place: list[Position] = []
+                            for loc in optimal_location:
+                                if (loc in available) and (loc not in unit_destinations):
+                                    perfect_place.append(loc)
+                            if len(perfect_place) != 0:
+                                action = move(unit, perfect_place[0])
+                                if (action != None):
+                                   actions.append(action)
+                                   workerActioned = True
                     else:
                         # if unit is a worker and there is no cargo space left, and we have cities, and it is not optimal to build a city at the current tile, lets return to them
-                        if closest_city_tile is not None and closest_dist_city <= 5:
-                            worker_debug_role = 'go deposit cargo move'
+                        if closest_city_tile is not None:
                             action = move(unit, closest_city_tile.pos)
                             if (action != None):
                                 actions.append(action)
@@ -798,12 +588,27 @@ def agent(observation, configuration):
                 possibleGatheringPositions = findOptimalResource(game_state.map, player.research_points, unit,
                                                                  turns_until_night, fuelCollectionMap)
                 # if we can sustain a new city move off a city tile to go to closest free resource spot
-                if closest_city_tile is not None and not workerActioned and unit.pos.distance_to(closest_city_tile.pos) < 5 and len(possibleGatheringPositions) > 0 and (estimated_total_value_of_workers + power_obtained >= sustainability_constant*power_needed) and turns_until_night > 1:
-                    worker_debug_role = 'not full cargo should build moves to non city tiles in prep of build'
+                if unit.pos in friendlyCityTiles and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.uranium != 100:
+                    if not workerActioned:
+                        estimated_total_value_of_workers += estimated_value_of_worker(unit)  # delete?
+                        best_mining_locations = findOptimalResource(game_state.map, player.research_points, unit,
+                                                                    turns_until_night, fuelCollectionMap)
+                        optimal_location: list[Position] = []
+                        for loc in best_mining_locations:
+                            optimal_location.append(loc[0])
+                        perfect_place: list[Position] = []
+                        for loc in optimal_location:
+                            if (loc in available) and (loc not in unit_destinations):
+                                perfect_place.append(loc)
+                        if len(perfect_place) != 0:
+                            action = move(unit, perfect_place[0])
+                            if (action != None):
+                                actions.append(action)
+                                workerActioned = True
+                elif not workerActioned and (len(possibleGatheringPositions) > 0) and (estimated_total_value_of_workers + estimated_value_of_worker(unit) >= power_needed + 200 + 200*cities_built) and unit.cargo.uranium != 100:
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
-                        if (pgp[0] not in friendlyCityTiles):
-                            gathering_locs.append(pgp[0])
+                        gathering_locs.append(pgp[0])
                     for spot in mining_spots:
                         if spot in gathering_locs:
                             gathering_locs.remove(spot)
@@ -821,7 +626,6 @@ def agent(observation, configuration):
                         else:
                             mining_spots.append(unit.pos)
                 elif not workerActioned and (len(possibleGatheringPositions) > 0):
-                    worker_debug_role = 'normal gather resources'
                     gathering_locs: list[Position] = []
                     for pgp in possibleGatheringPositions:
                         gathering_locs.append(pgp[0])
@@ -837,9 +641,6 @@ def agent(observation, configuration):
                             workerActioned = True
                         else:
                             mining_spots.append(unit.pos)
-            if (debug and game_state.turn < 150):
-                print("turn: " + str(game_state.turn) + " unit: " + str(unit.id) + " role: " + worker_debug_role)
-                print(worker_split_go)
     # add in preferences for which city builds the worker depending on distance from resource
 
     # you can add debug annotations using the functions in the annotate object
@@ -849,3 +650,5 @@ def agent(observation, configuration):
     # print(estimated_total_value_of_workers)
     # print(readily_accessible_fuel_on_map)
     return actions
+
+

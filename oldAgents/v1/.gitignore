@@ -1,7 +1,6 @@
 *.pyc
-replay.json
+*.json
 *.log
 *.suo
 *.sqlite
 *.tar.gz
-*.json

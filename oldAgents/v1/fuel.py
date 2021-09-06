@@ -62,8 +62,12 @@ def findOptimalResource(map, researchPoints, unit):
     for y in range(height):
         for x in range(width):
             if (fuelCollectionMap[x][y] > 0):
-                distanceTo = unit.pos.distance_to(Position(x, y))
-                value = valueFunction(fuelCollectionMap[x][y], distanceTo)
+                turns_to_destination = 2*unit.pos.distance_to(Position(x, y))
+                # closest_resource_position = find_closest_resource(Position(x, y))
+                # collection_rate_closest_resource = fuelCollectionMap[closest_resource_position.x][closest_resource_position.y]
+                # turns_to_closest_resource = 2*(abs(closest_resource_position.x-x) + abs(closest_resource_position.y-y))
+                # value = valueFunction(fuelCollectionMap[x][y], turns_to_destination, collection_rate_closest_resource, turns_to_closest_resource)
+                value = valueFunction(fuelCollectionMap[x][y], turns_to_destination)
                 valueList.append((Position(x, y), value))
     
     def key(item):

@@ -7,9 +7,6 @@ from lux.game_constants import GAME_CONSTANTS
 from lux import annotate
 from fuel import findOptimalResource
 
-import numpy as np
-
-
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 cost_uranium = 200 #research points needed for uranium
@@ -22,9 +19,7 @@ units_collected_per_turn_coal = 5
 units_collected_per_turn_uranium = 2
 full_day_night_cycle_length = 40
 less_fuel_needed_per_night_constant = 5
-
-# if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
-current_default_fuel_needed_to_survive_a_full_night = 300 
+current_default_fuel_needed_to_survive_a_full_night = 300 # if 10 nights, and 30 fuel consumed per night assuming no adj cities, 30*10 = 300
 worker_cooldown = 2
 night_length = 10
 mining_spots = []
